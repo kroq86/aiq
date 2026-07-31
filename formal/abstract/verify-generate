@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-abstract-generate.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+(cd "$ROOT" && "${FASM_BIN:-$(command -v fasm)}" abstract_generate_only.asm "$WORK/generate" >/dev/null)
+output="$($WORK/generate)"
+[[ "$output" == GENERATE_OK* ]] || { echo "GENERATE_FAIL output=$output" >&2; exit 1; }
+echo "$output"

@@ -1,0 +1,117 @@
+; Packed state ABI for the Agentlog 0.2 bounded explorer.
+; Positions are 1-based; zero means no event/checkpoint/causation/operation.
+
+if ~ defined MODEL_BOUND
+MODEL_BOUND equ 10
+end if
+MODEL_MAX_STATES equ 8192
+MODEL_MAX_TRANSITIONS equ 65536
+MODEL_MAX_APPEND_BATCH equ 2
+MODEL_MAX_MODEL_STEPS equ 2
+MODEL_MAX_TOOL_CALLS equ 2
+
+; Event-carried loop state uses one nibble per independent counter.
+; Low nibble: 1-based model_step. High nibble: tool_calls_used.
+LOOP_MODEL_MASK equ 0fh
+LOOP_TOOL_SHIFT equ 4
+
+MUTATION_NONE equ 0
+MUTATION_HISTORY_REWRITE equ 1
+MUTATION_CHECKPOINT_ROLLBACK equ 2
+MUTATION_RESULT_WITHOUT_REQUEST equ 3
+MUTATION_OPERATION_MISMATCH equ 4
+MUTATION_DUPLICATE_RESULT equ 5
+MUTATION_SECOND_TERMINAL equ 6
+MUTATION_TERMINAL_PROGRESSION equ 7
+MUTATION_RESOURCE_MISMATCH equ 8
+
+
+EVENT_TYPE_OFF equ 0
+EVENT_CAUSE_OFF equ 1
+EVENT_OPERATION_OFF equ 2
+EVENT_FLAGS_OFF equ 3
+EVENT_SIZE equ 4
+
+STATE_HISTORY_LEN_OFF equ 0
+STATE_REACTION_CP_OFF equ 1
+STATE_EFFECT_CP_OFF equ 2
+STATE_STATUS_OFF equ 3
+STATE_DEFINITION_OFF equ 4
+STATE_MODEL_INVOCATIONS_OFF equ 5
+STATE_TOOL_INVOCATIONS_OFF equ 6
+STATE_RESERVED_OFF equ 7
+STATE_HISTORY_OFF equ 8
+STATE_SIZE equ (STATE_HISTORY_OFF + MODEL_BOUND * EVENT_SIZE)
+
+STATUS_NONE equ 0
+STATUS_ACTIVE equ 1
+STATUS_COMPLETED equ 2
+STATUS_FAILED equ 3
+
+EV_NONE equ 0
+EV_RUN_CREATED equ 1
+EV_START equ 2
+EV_MODEL_REQUESTED equ 3
+EV_MODEL_SUCCEEDED_ANSWER equ 4
+EV_MODEL_SUCCEEDED_TOOL equ 5
+EV_MODEL_FAILED equ 6
+EV_TOOL_REQUESTED equ 7
+EV_TOOL_SUCCEEDED equ 8
+EV_TOOL_FAILED equ 9
+EV_ANSWER_PRODUCED equ 10
+EV_RUN_COMPLETED equ 11
+EV_RUN_FAILED equ 12
+EV_MODEL_LIMIT equ 13
+
+ACTION_CREATE_RUN equ 0
+ACTION_APPEND_START equ 1
+ACTION_REACTION equ 2
+ACTION_MODEL_ANSWER equ 3
+ACTION_MODEL_TOOL equ 4
+ACTION_MODEL_FAILURE equ 5
+ACTION_TOOL_SUCCESS equ 6
+ACTION_TOOL_FAILURE equ 7
+ACTION_FORCE_COMPLETE equ 8
+ACTION_FORCE_FAIL equ 9
+ACTION_RESTART equ 10
+ACTION_COUNT equ 11
+
+; Result/request classification is deliberately data, not branching folklore.
+event_is_request:
+	cmp	al, EV_MODEL_REQUESTED
+	je	.yes
+	cmp	al, EV_TOOL_REQUESTED
+	je	.yes
+	xor	eax, eax
+	ret
+.yes:
+	mov	eax, 1
+	ret
+
+event_is_result:
+	cmp	al, EV_MODEL_SUCCEEDED_ANSWER
+	je	.yes
+	cmp	al, EV_MODEL_SUCCEEDED_TOOL
+	je	.yes
+	cmp	al, EV_MODEL_FAILED
+	je	.yes
+	cmp	al, EV_TOOL_SUCCEEDED
+	je	.yes
+	cmp	al, EV_TOOL_FAILED
+	je	.yes
+	xor	eax, eax
+	ret
+.yes:
+	mov	eax, 1
+	ret
+
+event_is_terminal:
+	cmp	al, EV_RUN_COMPLETED
+	je	.yes
+	cmp	al, EV_RUN_FAILED
+	je	.yes
+	xor	eax, eax
+	ret
+.yes:
+	mov	eax, 1
+	ret

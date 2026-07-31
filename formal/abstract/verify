@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
+SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-abstract.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+
+(cd "$ROOT" && "$FASM_BIN" abstract_model_normal.asm "$WORK/model" >/dev/null)
+"$WORK/model" >"$WORK/facts"
+"$SETDB_BIN" new "$WORK/model.db"
+"$SETDB_BIN" load "$WORK/model.db" "$WORK/facts"
+
+base="$($SETDB_BIN diff "$WORK/model.db" AInitial AInv)"
+post="$($SETDB_BIN range "$WORK/model.db" ATransition)"
+{
+  while IFS= read -r state; do
+    [[ -n "$state" ]] && echo "SADD APost $state"
+  done <<<"$post"
+} >"$WORK/post.facts"
+"$SETDB_BIN" add "$WORK/model.db" APost __empty__
+"$SETDB_BIN" remove "$WORK/model.db" APost __empty__
+[[ -s "$WORK/post.facts" ]] && "$SETDB_BIN" load "$WORK/model.db" "$WORK/post.facts"
+step="$($SETDB_BIN diff "$WORK/model.db" APost AInv)"
+bad="$($SETDB_BIN members "$WORK/model.db" BadTransition)"
+
+if [[ -n "$base$step$bad" ]]; then
+  echo 'ABSTRACT_FAIL'
+  [[ -n "$base" ]] && echo "base=$base"
+  [[ -n "$step" ]] && echo "step=$step"
+  [[ -n "$bad" ]] && echo "bad_transition=$bad"
+  exit 1
+fi
+
+states="$($SETDB_BIN members "$WORK/model.db" AStates | awk 'NF {n++} END {print n+0}')"
+inv="$($SETDB_BIN members "$WORK/model.db" AInv | awk 'NF {n++} END {print n+0}')"
+transitions="$($SETDB_BIN pairs "$WORK/model.db" ATransition | awk 'NF {n++} END {print n+0}')"
+raw_transitions="$(awk '/^RADD ATransition / {n++} END {print n+0}' "$WORK/facts")"
+echo "ABSTRACT_GRAPH_PASS states=$states raw_transitions=$raw_transitions transitions=$transitions"
+echo 'BASE_PASS violations=0'
+echo 'STEP_PASS violations=0'
+echo "ABSTRACT_PASS states=$states inv=$inv transitions=$transitions bad_transitions=0"

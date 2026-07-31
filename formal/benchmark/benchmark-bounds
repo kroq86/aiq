@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+VERIFY="$ROOT/formal/setdb/verify"
+
+if (($# == 0)); then
+  set -- 4 6 8 10 12
+fi
+
+printf 'bound,status,states,transitions,reachable,violations,elapsed_ms\n'
+for bound in "$@"; do
+  if ! [[ "$bound" =~ ^[1-9][0-9]*$ ]] || ((bound > 63)); then
+    echo "invalid bound: $bound" >&2
+    exit 2
+  fi
+
+  started="$(date +%s%N 2>/dev/null || true)"
+  if [[ ${#started} -lt 10 ]]; then
+    started="$(( $(date +%s) * 1000 ))"
+    clock=ms
+  else
+    clock=ns
+  fi
+
+  set +e
+  output="$(MODEL_BOUND="$bound" "$VERIFY" 2>&1)"
+  status=$?
+  set -e
+
+  finished="$(date +%s%N 2>/dev/null || true)"
+  if [[ "$clock" == ns && ${#finished} -ge 10 ]]; then
+    elapsed_ms="$(( (finished - started) / 1000000 ))"
+  else
+    elapsed_ms="$(( $(date +%s) * 1000 - started ))"
+  fi
+
+  summary="$(printf '%s\n' "$output" | tail -n 1)"
+  states="$(printf '%s\n' "$summary" | sed -n 's/.*states=\([0-9][0-9]*\).*/\1/p')"
+  transitions="$(printf '%s\n' "$summary" | sed -n 's/.*transitions=\([0-9][0-9]*\).*/\1/p')"
+  reachable="$(printf '%s\n' "$summary" | sed -n 's/.*reachable=\([0-9][0-9]*\).*/\1/p')"
+  violations="$(printf '%s\n' "$summary" | sed -n 's/.*violations=\([0-9][0-9]*\).*/\1/p')"
+  [[ -n "$violations" ]] || violations=unknown
+
+  if ((status == 0)); then
+    result=PASS
+  else
+    result=FAIL
+  fi
+  printf '%s,%s,%s,%s,%s,%s,%s\n' \
+    "$bound" "$result" "${states:-unknown}" "${transitions:-unknown}" \
+    "${reachable:-unknown}" "$violations" "$elapsed_ms"
+
+  if ((status != 0)); then
+    printf '%s\n' "$output" >&2
+    exit "$status"
+  fi
+done

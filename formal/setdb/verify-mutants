@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cases=(
+  'mutant_history_rewrite.asm:HistoryAppendOnly'
+  'mutant_checkpoint_rollback.asm:CheckpointMonotonic'
+  'mutant_result_without_request.asm:ResultHasRequest'
+  'mutant_operation_mismatch.asm:ResultOperationMatchesRequest'
+  'mutant_duplicate_result.asm:AtMostOneResultPerRequest'
+  'agentlog_model_mutant.asm:AtMostOneTerminal'
+  'mutant_terminal_progression.asm:TerminalIsAbsorbing'
+  'mutant_resource_mismatch.asm:DefinitionResourceConsistent'
+)
+
+for item in "${cases[@]}"; do
+  source="${item%%:*}"
+  property="${item#*:}"
+  set +e
+  output="$($ROOT/verify-mutant "$source" "$property" 2>&1)"
+  code=$?
+  set -e
+  printf '%s\n' "$output"
+  if [[ "$code" -ne 1 ]] ||
+     [[ "$output" != *"FAIL_EXPECTED property=$property "* ]] ||
+     [[ "$output" != *'counterexample='* ]]; then
+    echo "ERROR mutant=$source property=$property exit=$code" >&2
+    exit 2
+  fi
+done
+
+echo "MUTATION_MATRIX_PASS mutants=${#cases[@]}"

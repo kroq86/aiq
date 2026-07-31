@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
+SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-crash-mutants.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+
+mutants=(duplicate_commit retry_new_operation)
+for mutant in "${mutants[@]}"; do
+  (cd "$ROOT" && "$FASM_BIN" "mutant_${mutant}.asm" "$WORK/$mutant" >/dev/null)
+  "$WORK/$mutant" >"$WORK/$mutant.facts"
+  "$SETDB_BIN" new "$WORK/$mutant.db"
+  "$SETDB_BIN" load "$WORK/$mutant.db" "$WORK/$mutant.facts"
+  post="$("$SETDB_BIN" range "$WORK/$mutant.db" CTransition)"
+  "$SETDB_BIN" add "$WORK/$mutant.db" CPost __empty__
+  "$SETDB_BIN" remove "$WORK/$mutant.db" CPost __empty__
+  while IFS= read -r state; do
+    [[ -n "$state" ]] && "$SETDB_BIN" add "$WORK/$mutant.db" CPost "$state"
+  done <<<"$post"
+  violations="$("$SETDB_BIN" diff "$WORK/$mutant.db" CPost CInv | awk 'NF {n++} END {print n+0}')"
+  if ((violations == 0)); then
+    echo "CRASH_WINDOW_MUTANT_SURVIVED mutant=$mutant" >&2
+    exit 1
+  fi
+  echo "CRASH_WINDOW_MUTANT_KILLED mutant=$mutant violations=$violations"
+done
+echo "CRASH_WINDOW_MUTATION_MATRIX_PASS mutants=${#mutants[@]}"

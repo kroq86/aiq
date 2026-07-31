@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
+SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-crash-window.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+
+(cd "$ROOT" && "$FASM_BIN" crash_model_normal.asm "$WORK/model" >/dev/null)
+"$WORK/model" >"$WORK/facts"
+"$SETDB_BIN" new "$WORK/model.db"
+"$SETDB_BIN" load "$WORK/model.db" "$WORK/facts"
+
+base="$("$SETDB_BIN" diff "$WORK/model.db" CInitial CInv)"
+post="$("$SETDB_BIN" range "$WORK/model.db" CTransition)"
+"$SETDB_BIN" add "$WORK/model.db" CPost __empty__
+"$SETDB_BIN" remove "$WORK/model.db" CPost __empty__
+while IFS= read -r state; do
+  [[ -n "$state" ]] && "$SETDB_BIN" add "$WORK/model.db" CPost "$state"
+done <<<"$post"
+step="$("$SETDB_BIN" diff "$WORK/model.db" CPost CInv)"
+
+if [[ -n "$base$step" ]]; then
+  echo 'CRASH_WINDOW_FAIL'
+  [[ -n "$base" ]] && echo "base=$base"
+  [[ -n "$step" ]] && echo "step=$step"
+  exit 1
+fi
+
+states="$("$SETDB_BIN" members "$WORK/model.db" CStates | awk 'NF {n++} END {print n+0}')"
+inv="$("$SETDB_BIN" members "$WORK/model.db" CInv | awk 'NF {n++} END {print n+0}')"
+transitions="$("$SETDB_BIN" pairs "$WORK/model.db" CTransition | awk 'NF {n++} END {print n+0}')"
+echo "CRASH_WINDOW_PASS states=$states inv=$inv transitions=$transitions base_violations=0 step_violations=0"

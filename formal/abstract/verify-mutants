@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
+SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
+mutants=(before_stays at_allows tool_updates_model model_updates_tool tool_reset)
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-abstract-mutants.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+
+for mutant in "${mutants[@]}"; do
+  (cd "$ROOT" && "$FASM_BIN" "mutant_${mutant}.asm" "$WORK/$mutant" >/dev/null)
+  "$WORK/$mutant" >"$WORK/$mutant.facts"
+  "$SETDB_BIN" new "$WORK/$mutant.db"
+  "$SETDB_BIN" load "$WORK/$mutant.db" "$WORK/$mutant.facts"
+  violations="$($SETDB_BIN members "$WORK/$mutant.db" BadTransition | awk 'NF {n++} END {print n+0}')"
+  if ((violations == 0)); then
+    echo "ABSTRACT_MUTANT_SURVIVED mutant=$mutant" >&2
+    exit 1
+  fi
+  echo "ABSTRACT_MUTANT_KILLED mutant=$mutant violations=$violations"
+done
+echo "ABSTRACT_MUTATION_MATRIX_PASS mutants=${#mutants[@]}"

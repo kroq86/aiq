@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-abstract-emit.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+(cd "$ROOT" && "${FASM_BIN:-$(command -v fasm)}" abstract_emit_fixture.asm "$WORK/emit" >/dev/null)
+"$WORK/emit" >"$WORK/actual.setdb"
+diff -u "$ROOT/fixtures/expected.setdb" "$WORK/actual.setdb"
+bytes="$(wc -c <"$WORK/actual.setdb" | tr -d ' ')"
+echo "EMIT_OK facts=4 bytes=$bytes"

@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="${1:-agentlog_model_mutant.asm}"
+PROPERTY="${2:-AtMostOneTerminal}"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-mutant.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
+SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
+if [[ -z "$SETDB_BIN" && -x /tmp/agentlog-setdb-bin ]]; then SETDB_BIN=/tmp/agentlog-setdb-bin; fi
+[[ -n "$SETDB_BIN" ]] || { echo 'setdb not found; set SETDB_BIN' >&2; exit 2; }
+
+(cd "$ROOT" && "$FASM_BIN" "$SOURCE" "$WORK/model" >/dev/null)
+"$WORK/model" >"$WORK/model.all"
+sed '/^# ENC /d' "$WORK/model.all" >"$WORK/model.setdb"
+"$SETDB_BIN" new "$WORK/model.db"
+"$SETDB_BIN" load "$WORK/model.db" "$WORK/model.setdb"
+initial="$($SETDB_BIN members "$WORK/model.db" Initial)"
+reachable="$($SETDB_BIN expand "$WORK/model.db" Transition first "$initial")"
+{
+  echo "SADD Reachable $initial"
+  while IFS= read -r state; do [[ -n "$state" ]] && echo "SADD Reachable $state"; done <<<"$reachable"
+} >"$WORK/reachable.setdb"
+"$SETDB_BIN" load "$WORK/model.db" "$WORK/reachable.setdb"
+violations="$($SETDB_BIN intersect "$WORK/model.db" Reachable "Bad${PROPERTY}")"
+[[ -n "$violations" ]] || { echo 'ERROR mutant was not detected' >&2; exit 2; }
+action_name() {
+  case "$1" in
+    a00000000) echo CreateRun ;;
+    a00000001) echo AppendStart ;;
+    a00000002) echo Reaction ;;
+    a00000003) echo ModelAnswer ;;
+    a00000004) echo ModelTool ;;
+    a00000005) echo ModelFailure ;;
+    a00000006) echo ToolSuccess ;;
+    a00000007) echo ToolFailure ;;
+    a00000008) echo ForceComplete ;;
+    a00000009) echo ForceFail ;;
+    a0000000a) echo Restart ;;
+    *) echo "$1" ;;
+  esac
+}
+state="$(printf '%s\n' "$violations" | head -1)"
+violating_state="$state"
+bad_parent="$($SETDB_BIN select "$WORK/model.db" ViolationParent first "$state" | head -1)"
+bad_action="$($SETDB_BIN select "$WORK/model.db" ViolationAction first "$state" | head -1)"
+if [[ -n "$bad_parent" ]]; then
+  state="$bad_parent"
+fi
+trace_reverse=''
+while [[ "$state" != "$initial" ]]; do
+  action="$($SETDB_BIN select "$WORK/model.db" ParentAction first "$state" | head -1)"
+  action="$(action_name "$action")"
+  trace_reverse="$action${trace_reverse:+|$trace_reverse}"
+  state="$($SETDB_BIN select "$WORK/model.db" Parent first "$state" | head -1)"
+done
+trace="$initial"
+while [[ -n "$trace_reverse" ]]; do
+  action="${trace_reverse%%|*}"
+  trace+=" -> $action"
+  if [[ "$trace_reverse" == *'|'* ]]; then
+    trace_reverse="${trace_reverse#*|}"
+  else
+    trace_reverse=''
+  fi
+done
+if [[ -n "$bad_parent" ]]; then
+  trace+=" -> $(action_name "$bad_action") -> $violating_state"
+fi
+violation_count="$(printf '%s\n' "$violations" | awk 'NF {n++} END {print n+0}')"
+echo "FAIL_EXPECTED property=$PROPERTY violations=$violation_count"
+echo "counterexample=$trace"
+exit 1
