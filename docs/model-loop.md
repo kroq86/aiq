@@ -4,6 +4,11 @@
 `Agent`. It installs standard event types, reactions, and effects; it does not
 create another executor or keep mutable session state.
 
+`ModelLoopEvents` remains importable for compatibility, but its constructor is
+an internal implementation detail and is not covered by public compatibility
+guarantees. Obtain the lifecycle event types from `DurableModelLoop.events`;
+do not construct a partial `ModelLoopEvents` value directly.
+
 ```python
 tools = ToolRegistry.from_functions(get_weather)
 
@@ -53,7 +58,7 @@ definition, base request, assistant message, and counters. A committed tool
 result therefore contains everything needed to deterministically produce the
 next model request after restart.
 
-The 0.2 policy accepts zero or one tool call per model response. Multiple tool
+The 0.3 policy accepts zero or one tool call per model response. Multiple tool
 calls require explicit join semantics and are rejected. Model/tool limits are
 persisted through lifecycle events; there is no hidden `while` loop.
 

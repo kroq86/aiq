@@ -7,11 +7,13 @@ conversation state, execute tools, or continue a reason-act loop.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Protocol
 
+from .artifacts import ArtifactRef
 from .core import Event, JsonValue
+from .instructions import ResolvedInstruction
 
 
 class ModelCallRejectedError(ValueError):
@@ -161,15 +163,31 @@ class ModelRequest:
     messages: tuple[ModelMessage, ...]
     tools: tuple[ToolDefinition, ...] = ()
     model: str | None = None
+    artifacts: tuple[ArtifactRef, ...] = ()
+    instruction: ResolvedInstruction | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "messages", tuple(self.messages))
         object.__setattr__(self, "tools", tuple(self.tools))
+        object.__setattr__(self, "artifacts", tuple(self.artifacts))
         if not self.messages:
             raise ValueError("model request requires at least one message")
         names = [tool.name for tool in self.tools]
         if len(names) != len(set(names)):
             raise ValueError("model request contains duplicate tool names")
+        artifact_keys = [(artifact.name, artifact.version) for artifact in self.artifacts]
+        if len(artifact_keys) != len(set(artifact_keys)):
+            raise ValueError("model request contains duplicate artifact versions")
+        if self.instruction is not None:
+            available = set(artifact_keys)
+            required = {
+                (artifact.name, artifact.version)
+                for artifact in self.instruction.artifact_refs
+            }
+            if not required <= available:
+                raise ValueError(
+                    "resolved instruction artifact refs must be pinned in ModelRequest"
+                )
 
     def to_data(self) -> Mapping[str, JsonValue]:
         return MappingProxyType(
@@ -177,6 +195,10 @@ class ModelRequest:
                 "messages": tuple(message.to_data() for message in self.messages),
                 "tools": tuple(tool.to_data() for tool in self.tools),
                 "model": self.model,
+                "artifacts": tuple(artifact.to_data() for artifact in self.artifacts),
+                "instruction": (
+                    self.instruction.to_data() if self.instruction is not None else None
+                ),
             }
         )
 
@@ -184,12 +206,24 @@ class ModelRequest:
     def from_data(cls, data: Mapping[str, JsonValue]) -> "ModelRequest":
         messages = data.get("messages")
         tools = data.get("tools", ())
-        if not isinstance(messages, tuple) or not isinstance(tools, tuple):
-            raise TypeError("serialized model messages and tools must be arrays")
+        artifacts = data.get("artifacts", ())
+        instruction = data.get("instruction")
+        if (
+            not isinstance(messages, tuple)
+            or not isinstance(tools, tuple)
+            or not isinstance(artifacts, tuple)
+        ):
+            raise TypeError("serialized model messages, tools, and artifacts must be arrays")
         return cls(
             messages=tuple(ModelMessage.from_data(item) for item in messages),
             tools=tuple(ToolDefinition.from_data(item) for item in tools),
             model=str(data["model"]) if data.get("model") is not None else None,
+            artifacts=tuple(ArtifactRef.from_data(item) for item in artifacts),
+            instruction=(
+                ResolvedInstruction.from_data(instruction)
+                if instruction is not None
+                else None
+            ),
         )
 
 

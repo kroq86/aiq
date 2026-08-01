@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
+PYTHON_BIN="${PYTHON_BIN:-$ROOT/.venv/bin/python}"
+
+cd "$ROOT"
+SETDB_BIN="$SETDB_BIN" PYTHONPATH="src:." "$PYTHON_BIN" formal/store/verify_runtime.py

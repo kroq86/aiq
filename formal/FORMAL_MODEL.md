@@ -399,21 +399,54 @@ unmatched_transitions=0
 These are scenario-based refinement checks, not a theorem over all Python
 executions.
 
-## 8. EventStoreModel and ResourceModel obligations
+## 8. EventStoreModel
 
-The target EventStore state is:
+The concrete storage objects are projected into a local finite safety state:
 
 \[
-E=(Streams,GlobalHistory,Checkpoints,EventIds)
+E=(PendingClass,A_{append},A_{position},A_{id},A_{batch},
+A_{out\Rightarrow cp},A_{cp\Rightarrow out},A_{conflict})
 \]
 
-Its required properties are append-only histories, monotonic positions,
-unique event identities, atomic event batches, atomic output/checkpoint commit,
-and conflict atomicity:
+`PendingClass = zero | one | many` abstracts the distance between the global
+position and one subscription checkpoint. The seven Boolean fields are ghost
+safety monitors, not SQLite columns. Actions cover append, one/two-output
+subscription commits, checkpoint-only consumption, version/checkpoint
+conflicts, and restart.
+
+The invariant requires append-only histories, monotonic positions, unique event
+identities, atomic event batches, both directions of the subscription
+output/checkpoint contract, and conflict atomicity:
 
 \[
 Conflict\Rightarrow E'=E
 \]
+
+FASM enumerates all 384 abstract tuples. setdb establishes:
+
+\[
+SInitial\subseteq SInv
+\]
+
+\[
+SInv(s)\land SNext(s,s')\Rightarrow SInv(s')
+\]
+
+```text
+states=384
+invariant_states=3
+unique_transitions=8
+base_violations=0
+step_violations=0
+mutants=8/8
+```
+
+This proves the finite local abstraction without a trace-length bound. SQLite
+runtime scenarios refine 12 persisted snapshots across four single-stream
+scenarios with no unmatched transitions. Multi-stream/subscription/process
+composition is not established.
+
+## 9. ResourceModel obligations
 
 The target resource state is:
 
@@ -432,11 +465,11 @@ Definition_{run}=Definition_{runtime}
 CapturedFingerprint=ResolvedFingerprint
 \]
 
-Independent inductive proof artifacts for the complete EventStoreModel and
-ResourceModel have not yet been implemented. Parts of these obligations are
-covered by the concrete model, SQLite tests, and runtime scenarios.
+An independent inductive ResourceModel proof artifact has not yet been
+implemented. Parts of its obligations are covered by the concrete model and
+runtime scenarios.
 
-## 9. Composition obligations
+## 10. Composition obligations
 
 The local proofs do not compose automatically. The remaining interfaces are:
 
@@ -470,7 +503,7 @@ r\rightarrow_{Python}r'
 
 That theorem has not been established.
 
-## 10. Established chain
+## 11. Established chain
 
 The current checked chain is:
 
@@ -494,6 +527,12 @@ CrashWindowModel
 CrashSafety
 \]
 
+and independently:
+
+\[
+EventStoreAbstract\models StoreSafety
+\]
+
 The correct product claim is:
 
 > Agentlog 0.2 implements a durable model/tool loop for FastAPI agents. Its
@@ -507,7 +546,7 @@ The incorrect claim is:
 > The entire Python framework and every external execution have been formally
 > proved correct.
 
-## 11. Complexity and trusted boundary
+## 12. Complexity and trusted boundary
 
 Explicit concrete exploration costs:
 

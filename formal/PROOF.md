@@ -649,6 +649,23 @@ CRASH_RUNTIME_REFINEMENT_PASS scenarios=1 snapshots=5 physical_invocations=2
                               unmatched_transitions=0
 ```
 
+Run the local EventStoreModel safety proof:
+
+```bash
+SETDB_BIN=/path/to/setdb ./formal/store/verify
+SETDB_BIN=/path/to/setdb ./formal/store/verify-mutants
+SETDB_BIN=/path/to/setdb ./formal/store/verify-runtime
+```
+
+Expected:
+
+```text
+STORE_PASS states=384 inv=3 transitions=8 base_violations=0 step_violations=0
+STORE_MUTATION_MATRIX_PASS mutants=8
+STORE_RUNTIME_REFINEMENT_PASS scenarios=4 snapshots=12 formal_states=384
+                              unmatched_transitions=0
+```
+
 ## 13. Explicit limitations
 
 The result does not prove:
@@ -666,7 +683,8 @@ The result does not prove:
 - a composed proof connecting the model-loop, dispatcher, store, and resource
   abstractions to every Python runtime execution.
 
-The runtime refinement layer does not observe this crash window:
+The general durable-state refinement layer does not itself observe this crash
+window:
 
 ```text
 external invocation
@@ -675,10 +693,9 @@ external invocation
 ```
 
 Physical invocation count is operational and may change while durable
-history/checkpoints remain identical. The local crash-window model below proves
-the intended abstract safety semantics, but checking real runtime behavior
-still requires a separate instrumented operational snapshot; it must not be
-guessed by the durable-state abstraction function.
+history/checkpoints remain identical. The dedicated crash-window verifier uses
+an explicit operational observer for one cancellation/restart scenario; this
+information must not be guessed by the general durable-state abstraction.
 
 ### Proof decomposition roadmap
 
@@ -777,6 +794,22 @@ This is scenario evidence, not universal dispatcher refinement. In particular,
 the observation uses task cancellation as the process-loss boundary and does
 not prove every OS/process/store failure mode.
 
+### EventStoreModel safety result
+
+The local store abstraction retains `zero | one | many` pending distance and
+seven ghost monitors for append-only history, monotonic positions, unique event
+identity, atomic batches, both directions of the output/checkpoint batch
+contract, and conflict atomicity. FASM generates the complete 384-state type
+and transitions from the three strengthened-invariant states. setdb proves the
+base case and inductive step with eight targeted mutants killed independently.
+
+This result is unbounded in trace length for the finite local abstraction. It
+is accompanied by scenario refinement of the public SQLite EventStore at 12
+completed persisted boundaries: empty creation, one- and multi-event append,
+expected-version success and conflict, reopen, and duplicate-ID rollback. It
+does not cover multiple streams, subscriptions, concurrent connections, or
+processes, and is not universal runtime refinement.
+
 ## 14. Conclusion
 
 The established results are:
@@ -800,7 +833,7 @@ Runtime refinement is supported by finite scenario evidence at the ten-event
 ABI. Neither result is an unbounded proof of arbitrary policy limits or of the
 complete Agentlog runtime.
 
-The parameterized ModelLoopModel and the local dispatcher crash-window model
-also have inductive safety proofs over their complete finite abstractions. These
-remain decomposed proofs; a composition theorem and universal runtime
-refinement have not been established.
+The parameterized ModelLoopModel, local dispatcher crash-window model, and
+local EventStoreModel also have inductive safety proofs over their complete
+finite abstractions. These remain decomposed proofs; a composition theorem and
+universal runtime refinement have not been established.

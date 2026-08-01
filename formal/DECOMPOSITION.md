@@ -36,6 +36,13 @@ checkpoint-only commits do not assert stream version
 
 It does not execute reactions, effects, providers, or tools.
 
+The implemented `formal/store` artifact proves these safety predicates over a
+finite `zero | one | many` pending-distance abstraction with seven ghost
+monitors. All eight targeted transition mutants are detected. A persisted-boundary
+SQLite refinement covers one database, stream, process, and sequential
+connection-per-operation access;
+multi-stream/subscription/process composition remains future work.
+
 ## DispatcherModel
 
 It assumes the EventStore guarantees. State contains the durable checkpoint,
@@ -148,9 +155,9 @@ It does not replace the local proofs or prove arbitrary policy limits.
 ## Implementation order
 
 ```text
-1. EventStoreModel + storage mutants
-2. DispatcherModel + restart/crash mutants
-3. ModelLoopModel + parameterized limit mutants
+1. EventStoreModel + storage mutants (local abstract proof complete)
+2. DispatcherModel + restart/crash mutants (crash-window slice complete)
+3. ModelLoopModel + parameterized limit mutants (complete)
 4. ResourceModel + fingerprint mutants
 5. CompositionModel + interface mutants
 6. fixed trace-model regression

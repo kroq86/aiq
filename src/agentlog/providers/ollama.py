@@ -15,6 +15,7 @@ except ImportError as error:  # pragma: no cover - depends on optional installat
 
 from ..models import (
     ModelCallFailedError,
+    ModelCallRejectedError,
     ModelMessage,
     ModelOutputRejectedError,
     ModelRequest,
@@ -61,9 +62,20 @@ class OllamaProvider:
         *,
         operation_id: str,
     ) -> ModelResponse:
+        if request.artifacts:
+            raise ModelCallRejectedError(
+                "OllamaProvider does not resolve Agentlog artifact references"
+            )
         payload: dict[str, Any] = {
             "model": request.model or self._model,
-            "messages": [self._message_payload(message) for message in request.messages],
+            "messages": (
+                (
+                    [{"role": "system", "content": request.instruction.text}]
+                    if request.instruction is not None
+                    else []
+                )
+                + [self._message_payload(message) for message in request.messages]
+            ),
             "stream": False,
         }
         if request.tools:

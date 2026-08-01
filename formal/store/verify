@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
+SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-store.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+
+(cd "$ROOT" && "$FASM_BIN" store_model_normal.asm "$WORK/model" >/dev/null)
+"$WORK/model" >"$WORK/facts"
+"$SETDB_BIN" new "$WORK/model.db"
+"$SETDB_BIN" load "$WORK/model.db" "$WORK/facts"
+
+base="$("$SETDB_BIN" diff "$WORK/model.db" SInitial SInv)"
+post="$("$SETDB_BIN" range "$WORK/model.db" STransition)"
+"$SETDB_BIN" add "$WORK/model.db" SPost __empty__
+"$SETDB_BIN" remove "$WORK/model.db" SPost __empty__
+while IFS= read -r state; do
+  [[ -n "$state" ]] && "$SETDB_BIN" add "$WORK/model.db" SPost "$state"
+done <<<"$post"
+step="$("$SETDB_BIN" diff "$WORK/model.db" SPost SInv)"
+if [[ -n "$base$step" ]]; then
+  echo 'STORE_FAIL'
+  [[ -n "$base" ]] && echo "base=$base"
+  [[ -n "$step" ]] && echo "step=$step"
+  exit 1
+fi
+
+states="$("$SETDB_BIN" members "$WORK/model.db" SStates | awk 'NF {n++} END {print n+0}')"
+inv="$("$SETDB_BIN" members "$WORK/model.db" SInv | awk 'NF {n++} END {print n+0}')"
+transitions="$("$SETDB_BIN" pairs "$WORK/model.db" STransition | awk 'NF {n++} END {print n+0}')"
+echo "STORE_PASS states=$states inv=$inv transitions=$transitions base_violations=0 step_violations=0"

@@ -10,6 +10,17 @@ from .core import (
     VersionConflictError,
     replay,
 )
+from .artifacts import (
+    ArtifactDigestMismatchError,
+    ArtifactNotFoundError,
+    ArtifactRef,
+    ArtifactStore,
+    ArtifactVersion,
+    ArtifactVersionConflictError,
+    InMemoryArtifactStore,
+    SQLiteArtifactStore,
+    artifact_digest,
+)
 from .sqlite import SQLiteEventStore, SQLiteSubscriptionCheckpoints
 from .runtime import (
     AgentDefinition,
@@ -28,6 +39,20 @@ from .model_loop import (
     DurableModelLoop,
     ModelLoopEvents,
     ModelLoopLimits,
+)
+from .instructions import (
+    ArtifactBinding,
+    InstructionResolutionError,
+    InstructionTemplate,
+    ResolvedInstruction,
+)
+from .middleware import (
+    AgentMiddleware,
+    MiddlewareExecutionError,
+    ModelCallContext,
+    ToolCallContext,
+    ToolRequest,
+    ToolResult,
 )
 from .models import (
     ModelCallFailedError,
@@ -52,6 +77,14 @@ from .tools import (
     validate_tool_arguments,
 )
 from .streams import agent_owns_stream, run_stream_id
+from .sequence import (
+    ChildTerminalOutcome,
+    SequenceChild,
+    SequenceChildRuntime,
+    SequenceDefinition,
+    Sequence,
+    SequenceState,
+)
 from .trace import (
     CausalEdge,
     CausalTrace,
@@ -65,11 +98,20 @@ from .trace import (
 
 __all__ = [
     "Agent",
+    "AgentMiddleware",
     "AgentPolicy",
+    "ArtifactDigestMismatchError",
+    "ArtifactNotFoundError",
+    "ArtifactRef",
+    "ArtifactStore",
+    "ArtifactVersion",
+    "ArtifactVersionConflictError",
+    "ArtifactBinding",
     "AgentDefinition",
     "CausalEdge",
     "CausalTrace",
     "CheckpointConflictError",
+    "ChildTerminalOutcome",
     "CommandRejected",
     "DanglingCausation",
     "DefinitionMismatchError",
@@ -87,9 +129,13 @@ __all__ = [
     "EventEnvelope",
     "EventStore",
     "InMemoryEventStore",
+    "InMemoryArtifactStore",
     "InMemorySubscriptionCheckpoints",
+    "InstructionResolutionError",
+    "InstructionTemplate",
     "FunctionTool",
     "ModelCallFailedError",
+    "ModelCallContext",
     "ModelCallRejectedError",
     "ModelMessage",
     "ModelLoopEvents",
@@ -99,18 +145,29 @@ __all__ = [
     "ModelResponse",
     "ModelOutputRejectedError",
     "ModelUsage",
+    "MiddlewareExecutionError",
     "OllamaProvider",
     "RunNotFoundError",
+    "ResolvedInstruction",
     "SQLiteEventStore",
+    "SQLiteArtifactStore",
     "SQLiteSubscriptionCheckpoints",
+    "SequenceChild",
+    "SequenceChildRuntime",
+    "SequenceDefinition",
+    "Sequence",
+    "SequenceState",
     "SubscriptionCheckpointStore",
     "TerminalEventConflictError",
     "Tool",
     "ToolArgumentsRejected",
     "ToolExecutionFailed",
     "ToolCall",
+    "ToolCallContext",
     "ToolDefinition",
     "ToolRegistry",
+    "ToolRequest",
+    "ToolResult",
     "TraceEvent",
     "TraceService",
     "VersionConflictError",
@@ -118,6 +175,7 @@ __all__ = [
     "effect_request",
     "function_tool",
     "agent_owns_stream",
+    "artifact_digest",
     "replay",
     "run_stream_id",
     "trace_to_json",

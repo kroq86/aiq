@@ -57,7 +57,7 @@ from agentlog import (
     agent_owns_stream,
     effect_request,
 )
-from agentlog.runtime import _commit_outputs_with_retry
+from agentlog.runtime import _commit_outputs_with_retry, _normalize_effect_outputs
 
 
 def run(coro):
@@ -444,7 +444,11 @@ class AgentlogModelMachine(RuleBasedStateMachine):
                 subscription_name=f"assistant:{version}:effects",
                 stream_id=stream_id,
                 consumed=consumed,
-                outputs=outputs,
+                outputs=_normalize_effect_outputs(
+                    consumed.event,
+                    outputs,
+                    operation_id=str(consumed.event.event_id),
+                ),
                 agent=self.agents[version],
             )
         )
