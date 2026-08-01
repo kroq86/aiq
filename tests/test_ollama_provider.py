@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import unittest
 
 import httpx
@@ -41,7 +42,9 @@ class OllamaProviderTests(unittest.TestCase):
             )
 
         async def scenario():
-            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(handler)
+            ) as client:
                 provider = OllamaProvider(client, model="llama")
                 return await provider.complete(
                     ModelRequest(
@@ -62,6 +65,35 @@ class OllamaProviderTests(unittest.TestCase):
         self.assertEqual(seen[0].headers["Idempotency-Key"], "stable-operation")
         self.assertEqual(response.tool_calls[0].name, "weather")
         self.assertEqual(response.usage.input_tokens, 10)
+
+    def test_think_option_is_omitted_or_forwarded_exactly(self) -> None:
+        async def scenario(think: bool | None) -> dict[str, object]:
+            seen: list[dict[str, object]] = []
+
+            def handler(request: httpx.Request) -> httpx.Response:
+                seen.append(json.loads(request.content))
+                return httpx.Response(
+                    200,
+                    json={"message": {"role": "assistant", "content": "done"}},
+                )
+
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(handler)
+            ) as client:
+                provider = OllamaProvider(client, model="qwen3:4b", think=think)
+                await provider.complete(
+                    ModelRequest((ModelMessage("user", "work"),)),
+                    operation_id="stable-operation",
+                )
+            return seen[0]
+
+        for think in (None, True, False):
+            with self.subTest(think=think):
+                payload = asyncio.run(scenario(think))
+                if think is None:
+                    self.assertNotIn("think", payload)
+                else:
+                    self.assertIs(payload["think"], think)
 
 
 if __name__ == "__main__":

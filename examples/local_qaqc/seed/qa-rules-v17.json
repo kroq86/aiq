@@ -1,0 +1,1 @@
+{"version":"qa-rules-v17","rules":[{"id":"positive_amount","field":"amount","operator":"gt","value":0}]}

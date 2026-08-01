@@ -7,6 +7,7 @@ name = "agentlog"
 version = "0.3.0"
 description = "Database-agnostic event log core for durable agents"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
 authors = [
     { name = "Kirill Ostapenko", email = "djkroq@gmail.com" },

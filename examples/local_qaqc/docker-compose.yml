@@ -1,0 +1,72 @@
+services:
+  agentlog:
+    build:
+      context: ../..
+      dockerfile: examples/local_qaqc/Dockerfile
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      AGENTLOG_PROVIDER: ${AGENTLOG_PROVIDER:-deterministic}
+      AGENTLOG_FAULT: ${AGENTLOG_FAULT:-none}
+      AGENTLOG_DB: /data/agentlog.db
+      ARTIFACT_DB: /data/artifacts.db
+      MCP_URL: http://mcp-server:8001/mcp
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/chat}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:1b}
+      FAULT_DIR: /data/faults
+    ports: ["8000:8000"]
+    volumes: ["agentlog-data:/data"]
+    depends_on:
+      mcp-server:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+
+  mcp-server:
+    build:
+      context: ../..
+      dockerfile: examples/local_qaqc/Dockerfile
+    command: ["python", "mcp_server.py"]
+    environment:
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: agentlog-lab
+      QA_POLICY: ${QA_POLICY:-allow}
+      MCP_FAULT: ${MCP_FAULT:-none}
+    ports: ["8001:8001"]
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["minio-data:/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/seed/init.sh"]
+    volumes:
+      - ./seed:/seed:ro
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes: ["ollama-data:/root/.ollama"]
+    ports: ["11434:11434"]
+
+volumes:
+  agentlog-data:
+  minio-data:
+  ollama-data:

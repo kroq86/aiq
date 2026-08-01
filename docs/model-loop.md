@@ -28,6 +28,10 @@ application.register(
 )
 ```
 
+`OllamaProvider(..., think=None)` leaves Ollama's thinking setting unspecified.
+Pass `think=True` or `think=False` to send that exact boolean in the chat API
+request. The default preserves the behavior of existing callers.
+
 ## Definition and resources
 
 The versioned definition captures immutable `ToolDefinition` values. The

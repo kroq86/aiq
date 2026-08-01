@@ -90,6 +90,11 @@ Runtime scenarios and unmatched boundaries:
   before SQLite registration and observes 2 physical PUTs with 1 registered
   identity. Crash evaluation scopes the committed result by request causation,
   so earlier tool results remain visible and cannot be collapsed by normalization.
+  Local reference lab release gate: deterministic provider completed the exact
+  list_rules -> stat_dataset -> run_qaqc -> save_report trajectory with 4 durable
+  requests, 4 durable outcomes, an exact external artifact reference, and
+  duplicate-start HTTP 409. Ollama runs are informational and non-blocking;
+  real-model planner reliability remains open.
 
 Composition obligations open:
   Local models are connected by tested interface scenarios, not a universal
@@ -120,15 +125,16 @@ Not proved:
 Build command:
 
 ```bash
-UV_CACHE_DIR=/private/tmp/agentlog-0.3-external-release/uv-cache \
-  uv build --out-dir /private/tmp/agentlog-0.3-external-release/dist-a
+release_dir="$(mktemp -d)"
+release_cache="$(mktemp -d)"
+UV_CACHE_DIR="$release_cache" uv build --out-dir "$release_dir"
 ```
 
 Artifacts:
 
 ```text
-wheel sha256 c6251e4d8a126c4116bafb1246abf96af79ba9c6b535e596c4044ea57a99e13e
-sdist sha256 c3f47f1fddb780ef43219c9409e401c781573372ee631c45e5e532e4a4e65971
+wheel sha256 65f9c858a0c6874ef23169b2f931c50fccb80ac770b2135b7bb4bd33ac77eb3d
+sdist sha256 b5275536eea3f13f19a6e8c11893a6437210de93b4d865a0c5c09de11cba6b84
 ```
 
 This evidence file is excluded from the sdist so recording the sdist digest
@@ -142,7 +148,7 @@ new Python 3.14.6 venv. Import came from that venv's `site-packages`, the
 passed. The full installed-wheel suite completed:
 
 ```text
-Ran 261 tests in 29.379s
+Ran 262 tests in 34.050s
 OK (skipped=1)
 ```
 
@@ -176,7 +182,7 @@ done
 PYTHONPATH=src .venv/bin/python formal/instructions/check.py
 PYTHONPATH=src .venv/bin/python formal/sequence/check.py
 PYTHONPATH=src .venv/bin/python -m unittest tests.test_qaqc_e2e_model -v
-FASM_BIN=/opt/homebrew/bin/fasm SETDB_BIN=/tmp/agentlog-setdb-bin \
+FASM_BIN=/path/to/fasm SETDB_BIN=/path/to/setdb \
   PYTHONPATH=src:. .venv/bin/python -m formal.refinement.verify_runtime
 python -m unittest discover -s tests -q
 ```

@@ -41,6 +41,7 @@ class OllamaProvider:
         model: str,
         url: str = "http://127.0.0.1:11434/api/chat",
         timeout: float = 120.0,
+        think: bool | None = None,
     ) -> None:
         if not model:
             raise ValueError("Ollama model must not be empty")
@@ -50,6 +51,7 @@ class OllamaProvider:
         self._client = client or httpx.AsyncClient(timeout=timeout)
         self._model = model
         self._url = url
+        self._think = think
 
     async def aclose(self) -> None:
         """Close the internally-created HTTP client, if this provider owns it."""
@@ -78,6 +80,8 @@ class OllamaProvider:
             ),
             "stream": False,
         }
+        if self._think is not None:
+            payload["think"] = self._think
         if request.tools:
             payload["tools"] = [
                 {
@@ -98,7 +102,11 @@ class OllamaProvider:
             )
             response.raise_for_status()
             data = response.json()
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as error:
+        except (
+            httpx.TimeoutException,
+            httpx.NetworkError,
+            httpx.HTTPStatusError,
+        ) as error:
             raise ModelCallFailedError(f"Ollama request failed: {error}") from error
         except ValueError as error:
             raise ModelOutputRejectedError("Ollama returned invalid JSON") from error
@@ -115,7 +123,9 @@ class OllamaProvider:
 
     @staticmethod
     def _parse_response(data: Any) -> ModelResponse:
-        if not isinstance(data, Mapping) or not isinstance(data.get("message"), Mapping):
+        if not isinstance(data, Mapping) or not isinstance(
+            data.get("message"), Mapping
+        ):
             raise ModelOutputRejectedError("Ollama response is missing message")
         message_data = data["message"]
         role = message_data.get("role", "assistant")
@@ -130,8 +140,12 @@ class OllamaProvider:
             if not isinstance(raw_call, Mapping):
                 raise ModelOutputRejectedError("Ollama tool call must be an object")
             function = raw_call.get("function")
-            if not isinstance(function, Mapping) or not isinstance(function.get("name"), str):
-                raise ModelOutputRejectedError("Ollama tool call is missing function name")
+            if not isinstance(function, Mapping) or not isinstance(
+                function.get("name"), str
+            ):
+                raise ModelOutputRejectedError(
+                    "Ollama tool call is missing function name"
+                )
             arguments = function.get("arguments", {})
             if isinstance(arguments, str):
                 try:
@@ -141,7 +155,9 @@ class OllamaProvider:
                         "Ollama tool arguments are invalid JSON"
                     ) from error
             if not isinstance(arguments, Mapping):
-                raise ModelOutputRejectedError("Ollama tool arguments must be an object")
+                raise ModelOutputRejectedError(
+                    "Ollama tool arguments must be an object"
+                )
             call_id = raw_call.get("id") or f"ollama-call-{index + 1}"
             calls.append(ToolCall(str(call_id), str(function["name"]), arguments))
         usage = ModelUsage(
@@ -152,5 +168,7 @@ class OllamaProvider:
             message=ModelMessage(role, content),
             tool_calls=tuple(calls),
             usage=usage,
-            provider_request_id=(str(data["created_at"]) if data.get("created_at") else None),
+            provider_request_id=(
+                str(data["created_at"]) if data.get("created_at") else None
+            ),
         )
