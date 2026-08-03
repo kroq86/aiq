@@ -155,6 +155,21 @@ Run the executable model suite:
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests/model -t . -v
 ```
 
+## Standalone local bounded models
+
+Two optional v0.4 controls are checked in small pure-Python finite models that
+do not require `setdb`:
+
+- `formal/cycle_guard/`: repeated-state guard, 30 reachable states, two killed
+  targeted mutants;
+- `formal/completion_gate/`: independent invariant/goal configuration axes,
+  15 reachable states, all material gate events witnessed, five killed
+  targeted mutants.
+
+These are local bounded-exhaustive checks. They do not modify the trace
+reference interpreter, prove arbitrary Python predicates, or establish
+composition with the base lifecycle.
+
 ## Bounded exhaustive exploration with setdb
 
 `formal/setdb/check_agentlog_model.py` exhaustively explores every reachable

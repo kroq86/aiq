@@ -337,19 +337,21 @@ exactly-once physical execution.
 - Evidence:
   - [Goal gate implementation](../src/agentlog/model_loop.py)
   - [Goal-gate scenarios](../tests/test_v04_constrained_execution_e2e.py)
+  - [Completion-gate bounded model](../formal/completion_gate/README.md)
   - [Runtime mutants](../formal/model/verify_v04_runtime_mutants.py)
-- Boundary: Workflows without a goal predicate retain the backward-compatible completion path; the configured goal is one application boolean predicate.
-- Not proved: Goal truth for an arbitrary business domain is not established by the runtime.
+- Boundary: Workflows without a goal predicate retain the backward-compatible completion path; the configured goal is one application boolean predicate, and the bounded model is a local finite abstraction.
+- Not proved: Goal truth for an arbitrary business domain, universal runtime refinement, and composition with the base lifecycle are not established.
 
 ## Ticket 41: Cycle detection and budgets
 - Status: `partial`
 - Levels: `agent`, `workflow`, `metrics`
-- Answer: `ModelLoopLimits` bounds model steps, tool calls, and repeated state visits; terminal events make exhaustion observable and `RunReport` derives counts/flags.
+- Answer: `ModelLoopLimits` bounds model steps, tool calls, and repeated state visits; terminal events make exhaustion observable and `RunReport` derives counts/flags. A standalone bounded model independently checks the guard's own safety properties with `WorkflowCycleDetected` non-vacuously reachable and two killed targeted mutants.
 - Evidence:
   - [Limits and cycle guard](../src/agentlog/model_loop.py)
   - [Constrained execution tests](../tests/test_v04_constrained_execution_e2e.py)
   - [Run report tests](../tests/test_run_report.py)
-- Boundary: There are no token, monetary, wall-clock, or dynamic cost budgets in the model loop.
+  - [Cycle-guard bounded model](../formal/cycle_guard/README.md)
+- Boundary: There are no token, monetary, wall-clock, or dynamic cost budgets in the model loop. The bounded model does not establish a refinement mapping from the real state-fingerprint mechanism to its abstract classes.
 - Not proved: State-fingerprint repetition is an operational guard, not a proof that every semantic cycle is detected.
 
 ## Ticket 42: Retry, replan, abstain, and fail

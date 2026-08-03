@@ -47,9 +47,9 @@ Not established by this model:
   unlike `formal/FORMAL_MODEL.md` Sec. 5's mapping for the base model-loop
   counters;
 - anything about `GoalSatisfied`/`GoalNotSatisfied`/
-  `WorkflowInvariantViolated`/`RunAbstained` -- those remain the separate,
-  not-yet-built `CompletionGateModel` from the v0.4 release-hardening
-  feasibility spike (`docs/release-evidence-0.4.md`);
+  `WorkflowInvariantViolated`/`RunAbstained` -- those are outside this model.
+  The first three now have a separate local model in
+  `formal/completion_gate/`; `RunAbstained` remains unmodeled;
 - universal runtime refinement of `_cycle_failure` -- see
   `tests/test_v04_constrained_execution_e2e.py`'s
   `V04ControlRestartEquivalenceTests` for the separate, scenario-level

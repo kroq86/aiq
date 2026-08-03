@@ -157,18 +157,20 @@ the same properties (not a reference-model proof) lives in
 `tests/test_v04_constrained_execution_e2e.py::V04ControlRestartEquivalenceTests`
 and the targeted mutation table in `docs/release-evidence-0.4.md`.
 
-One narrow slice of this gap has since been closed as a *separate*, standalone
-small model rather than by extending `spec.py`: `formal/cycle_guard/` is a
-bounded-exhaustive Python check (same convention as `formal/middleware/` and
-`formal/sequence/`, no `setdb` dependency) covering only the repeated-state
-guard's own abstract safety properties, with `WorkflowCycleDetected` reachable
-(non-vacuous) and two killed targeted mutants. It does not touch
-`spec.py`, does not establish a refinement mapping from the real
-`_fingerprint_snapshot` mechanism, and does not cover
-`GoalSatisfied`/`GoalNotSatisfied`/`WorkflowInvariantViolated`/
-`RunAbstained` -- see `formal/cycle_guard/README.md` for the precise scope.
-Those four event types, and the composition question of whether local
-per-event proofs like this one combine into anything, remain fully open.
+Two narrow slices of this gap have since been checked as *separate* standalone
+small models rather than by extending `spec.py` (same convention as
+`formal/middleware/` and `formal/sequence/`, no `setdb` dependency):
+
+- `formal/cycle_guard/` covers the repeated-state guard with
+  `WorkflowCycleDetected` reachable and two killed targeted mutants;
+- `formal/completion_gate/` covers the independent configured/not-configured
+  invariant and goal axes in 15 reachable states, with all three gate events
+  reachable and five killed targeted mutants.
+
+Neither local model modifies `spec.py` or establishes universal runtime
+refinement. `RunAbstained` remains unmodeled, and the composition question of
+whether these local checks combine with the base lifecycle remains open. See
+each model's README for its precise scope.
 
 ## 3. Concrete single-run integration model
 

@@ -177,11 +177,13 @@ python3 formal/cycle_guard/check.py --mutant cycle_allows_completion
 # -> MUTANT_KILLED mutant=cycle_allows_completion property=CycleDetectedNeverPrecedesRunCompleted ...
 ```
 
-`GoalSatisfied`, `GoalNotSatisfied`, `WorkflowInvariantViolated`, and
-`RunAbstained` are unaffected by this and remain exactly as described above:
-vacuous in `spec.py`, covered only by runtime scenario/restart/mutation
-evidence, no bounded model. See `formal/cycle_guard/README.md` for the exact
-scope boundary.
+The separate `CompletionGateModel` was subsequently built in
+`formal/completion_gate/` using the same standalone pure-Python bounded-check
+pattern. Its explicit invariant/goal configuration product reaches exactly 15
+normalized states and 11 transitions; all three gate events are reachable and
+five targeted mutants are killed. This does not alter `spec.py`: its own
+goal-event assertions remain vacuous, `RunAbstained` remains unmodeled, and
+composition with the base lifecycle remains open.
 
 ### Feasibility spike (not committed, not a proof)
 
@@ -225,6 +227,12 @@ one. The naive single-merged-product approach (1134+ states) is explicitly
 the wrong shape per the project's own stated modeling philosophy and should
 not be attempted even as a "quick" option.
 
+The subsequently committed `formal/completion_gate/` checker closes only the
+standalone local completion-gate tier of that estimate. It does not add the
+absorbing abstention phase to the base FASM model, provide a concrete-to-local
+refinement mapping, or discharge composition obligations. The broader
+“moderate extension” therefore remains open.
+
 ## Crash-window scope (v0.4 policy hooks)
 
 The pre-existing crash-window model (`formal/FORMAL_MODEL.md` Sec. 6) already
@@ -258,6 +266,17 @@ python3 formal/cycle_guard/check.py
 python3 formal/cycle_guard/check.py --mutant disable_cycle_guard
 python3 formal/cycle_guard/check.py --mutant cycle_allows_completion
 # -> PASS ... cycle_detected_witnessed=True; both mutants MUTANT_KILLED
+```
+
+```bash
+# completion-gate bounded model (no setdb dependency)
+python3 formal/completion_gate/check.py
+python3 formal/completion_gate/check.py --mutant invariant_allows_completion
+python3 formal/completion_gate/check.py --mutant goal_allows_completion
+python3 formal/completion_gate/check.py --mutant completion_before_goal
+python3 formal/completion_gate/check.py --mutant goal_checked_before_invariant
+python3 formal/completion_gate/check.py --mutant terminal_not_absorbing
+# -> PASS bound=3 states=15 transitions=11; all five mutants MUTANT_KILLED
 ```
 
 ```bash

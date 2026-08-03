@@ -26,8 +26,8 @@ Explicitly NOT established by this model:
   are about the separate trace/bisimulation reference model used for runtime
   refinement, and remain vacuous exactly as documented there;
 - the goal/invariant completion gate (`GoalSatisfied`/`GoalNotSatisfied`/
-  `WorkflowInvariantViolated`) -- that is the separate `CompletionGateModel`
-  scoped out of this pass; only the cycle guard was built.
+  `WorkflowInvariantViolated`) -- that remains outside this checker and now
+  has its own local model in `formal/completion_gate/`.
 
 What this model DOES newly establish: `WorkflowCycleDetected` is a
 non-vacuous, reachable event in a checked bounded exploration (unlike the
