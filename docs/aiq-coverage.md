@@ -233,23 +233,27 @@ exactly-once physical execution.
 ## Ticket 31: Model Context Protocol
 - Status: `partial`
 - Levels: `artifact`
-- Answer: The repository contains MCP-oriented examples and documents the durable tool lifecycle expected around an adapter, but the Agentlog package has no first-class MCP client/server protocol implementation.
+- Answer: The optional `MCPTool` adapter performs real official-SDK Streamable HTTP tool calls inside Agentlog's existing durable tool lifecycle.
 - Evidence:
+  - [Shipped MCP client adapter](../src/agentlog/mcp.py)
+  - [MCP adapter contract](mcp.md)
+  - [MCP adapter tests](../tests/test_mcp.py)
   - [Reference chat-to-MCP scenario](reference-chat-agent.md)
   - [MCP lifecycle boundary](positioning.md)
   - [Example MCP server](../examples/local_qaqc/mcp_server.py)
-- Boundary: Examples and fake adapters are laboratory integrations, not a shipped MCP platform.
-- Not proved: Protocol interoperability and complete MCP lifecycle conformance are not established.
+- Boundary: This is one statically configured client tool over Streamable HTTP, not an MCP server framework or complete MCP platform.
+- Not proved: Complete protocol interoperability, all transports, discovery, and lifecycle conformance are not established.
 
 ## Ticket 32: MCP tools, resources, and prompts
 - Status: `partial`
 - Levels: `artifact`
-- Answer: Tool calls are represented in Agentlog and the local QA/QC example exposes MCP tools; MCP resources and prompts are not first-class Agentlog artifacts.
+- Answer: Statically declared tools can execute through the shipped MCP client; MCP resources and prompts are not first-class Agentlog artifacts.
 - Evidence:
   - [Tool types](../src/agentlog/models.py)
+  - [MCP adapter contract](mcp.md)
   - [Example MCP server](../examples/local_qaqc/mcp_server.py)
 - Boundary: Agentlog's `ArtifactRef` and instruction templates are not claimed to implement MCP resources or prompts.
-- Not proved: Discovery and transport of all three MCP artifact classes are absent.
+- Not proved: Dynamic tool discovery and transport of all three MCP artifact classes are absent.
 
 ## Ticket 33: MCP security
 - Status: `partial`
@@ -257,6 +261,7 @@ exactly-once physical execution.
 - Answer: Application policy can constrain tool identity, arguments, transitions, and observations without delegating permissions to the model.
 - Evidence:
   - [MCP boundary](positioning.md)
+  - [MCP operation identity](mcp.md)
   - [Constrained execution E2E](../tests/test_v04_constrained_execution_e2e.py)
 - Boundary: There is no core MCP trust store, server authentication policy, description sandbox, or generic permission framework.
 - Not proved: Connecting an MCP server is not evidence that the server or its descriptions are trustworthy.
@@ -264,11 +269,11 @@ exactly-once physical execution.
 ## Ticket 34: MCP versus REST
 - Status: `out_of_scope`
 - Levels: `artifact`
-- Answer: Agentlog provides an optional HTTP/FastAPI boundary and MCP examples, but no unified REST/MCP transport abstraction or protocol-comparison implementation.
+- Answer: Agentlog provides an optional FastAPI application boundary and a separate optional MCP Streamable HTTP tool adapter, but no unified REST/MCP abstraction.
 - Evidence:
   - [FastAPI contract](fastapi.md)
-  - [MCP lifecycle boundary](positioning.md)
-- Boundary: JSON-RPC discovery, resources/prompts, stdio, and streamable HTTP belong to an MCP adapter outside the core.
+  - [MCP adapter contract](mcp.md)
+- Boundary: MCP discovery, resources/prompts, stdio, and protocol selection remain outside the core runtime.
 - Not proved: REST/MCP semantic equivalence or protocol interoperability is not established.
 
 ## Ticket 35: MCP-result validation
@@ -278,6 +283,7 @@ exactly-once physical execution.
 - Evidence:
   - [Validation API](../src/agentlog/validation.py)
   - [Result validation path](../src/agentlog/model_loop.py)
+  - [Real MCP lab evidence](../examples/local_qaqc/EVIDENCE.md)
   - [Constrained execution E2E](../tests/test_v04_constrained_execution_e2e.py)
 - Boundary: The validator is application-owned and transport-neutral; there is no MCP-specific schema/tenant/language/freshness/provenance policy.
 - Not proved: Arbitrary MCP observations are not automatically trustworthy.

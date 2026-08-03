@@ -273,11 +273,14 @@ ToolCallRequested
 → ToolCallSucceeded | ToolCallFailed | ToolCallRejected
 ```
 
-Часть lifecycle проверена fake adapter tests. Для локальных Python tools уже
-есть ограниченная structural JSON Schema validation и опциональная
-application-owned semantic policy до/после tool execution. Retryable request
-rejection возвращается модели как feedback; postcondition failure не повторяет
-внешний effect автоматически. Настоящий MCP adapter пока отсутствует.
+`agentlog.MCPTool` реализует узкий настоящий client boundary через официальный
+MCP Python SDK и Streamable HTTP. Он включается в обычный `ToolRegistry`, поэтому
+существующая structural JSON Schema validation и опциональная
+application-owned semantic policy выполняются до/после сетевого tool execution.
+Retryable request rejection возвращается модели как feedback; postcondition
+failure не повторяет внешний effect автоматически. Adapter не реализует MCP
+server, discovery, resources/prompts, stdio, session pooling или trust policy;
+точная граница описана в `docs/mcp.md`.
 
 Эта policy является механизмом constrained execution, а не планировщиком:
 она проверяет один предложенный переход, но не выбирает следующий допустимый

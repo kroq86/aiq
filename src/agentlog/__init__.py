@@ -159,6 +159,7 @@ __all__ = [
     "ModelOutputRejectedError",
     "ModelUsage",
     "MiddlewareExecutionError",
+    "MCPTool",
     "OllamaProvider",
     "RunNotFoundError",
     "RunReport",
@@ -209,6 +210,10 @@ __all__ = [
 
 
 def __getattr__(name: str):
+    if name == "MCPTool":
+        from .mcp import MCPTool
+
+        return MCPTool
     if name == "OllamaProvider":
         from .providers import OllamaProvider
 

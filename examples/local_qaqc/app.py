@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-import httpx
 from fastapi import FastAPI, HTTPException
-from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client
 from pydantic import BaseModel
 
 from agentlog import (
@@ -17,6 +15,7 @@ from agentlog import (
     ArtifactRef,
     DurableModelLoop,
     Event,
+    MCPTool,
     ModelLoopLimits,
     ModelMessage,
     ModelRequest,
@@ -88,40 +87,37 @@ class DeterministicProvider:
         return ModelResponse(ModelMessage("assistant", "tool call"), (call,))
 
 
-class MCPTool:
+class QaqcMCPTool:
     def __init__(
         self,
         definition: ToolDefinition,
         artifacts: SQLiteArtifactStore,
     ) -> None:
-        self.definition = definition
+        self._transport = MCPTool(
+            definition,
+            url=MCP_URL,
+            operation_id_argument=(
+                "operation_id" if definition.name == "save_report" else None
+            ),
+        )
         self._artifacts = artifacts
 
+    @property
+    def definition(self) -> ToolDefinition:
+        return self._transport.definition
+
     async def execute(self, arguments, *, operation_id: str):
-        payload = dict(arguments)
-        if self.definition.name == "save_report":
-            payload["operation_id"] = operation_id
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as http_client:
-                async with streamable_http_client(MCP_URL, http_client=http_client) as (
-                    read,
-                    write,
-                    _,
-                ):
-                    async with ClientSession(read, write) as session:
-                        await session.initialize()
-                        result = await session.call_tool(self.definition.name, payload)
-        except Exception as error:
-            raise ToolExecutionFailed(f"MCP call failed: {error}") from error
-        if result.isError:
-            raise ToolExecutionFailed(str(result.content))
-        value = result.structuredContent
-        if value is None and result.content:
-            value = json.loads(result.content[0].text)
-        if not isinstance(value, dict):
-            raise ToolExecutionFailed("MCP tool returned no structured object")
-        while set(value) == {"result"} and isinstance(value["result"], dict):
+        value = await self._transport.execute(
+            arguments, operation_id=operation_id
+        )
+        while (
+            isinstance(value, Mapping)
+            and set(value) == {"result"}
+            and isinstance(value["result"], Mapping)
+        ):
             value = value["result"]
+        if not isinstance(value, Mapping):
+            raise ToolExecutionFailed("MCP tool returned no structured object")
         if self.definition.name == "save_report":
             raw_ref = value.get("artifact_ref", value)
             ref = ArtifactRef.from_data(raw_ref)
@@ -228,7 +224,7 @@ async def build() -> FastAPI:
     )
     registry = ToolRegistry()
     for item in DEFINITIONS:
-        registry.register(MCPTool(item, artifacts))
+        registry.register(QaqcMCPTool(item, artifacts))
     if os.getenv("AGENTLOG_PROVIDER", "deterministic") == "ollama":
         provider = OllamaProvider(
             model=os.getenv("OLLAMA_MODEL", "llama3.2:1b"),

@@ -7,6 +7,11 @@ curl -> FastAPI/Agentlog -> provider -> MCP Streamable HTTP -> MinIO
      -> SQLiteArtifactStore.register_external -> SQLite EventStore
 ```
 
+The Agentlog service composes the shipped `agentlog.MCPTool` Streamable HTTP
+client with QA/QC-specific artifact registration and fault injection. The MCP
+server is a real official-SDK `FastMCP` process; its domain data remains a local
+deterministic fixture.
+
 The deterministic provider is the default because restart assertions must not
 depend on planner sampling. `AGENTLOG_PROVIDER=ollama` switches the same durable
 loop to the real `OllamaProvider`.

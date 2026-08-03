@@ -36,6 +36,10 @@ exclude = [
 ollama = [
     "httpx>=0.28,<1",
 ]
+mcp = [
+    "httpx>=0.28,<1",
+    "mcp>=1.27,<2",
+]
 fastapi = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.34,<1",

@@ -97,8 +97,8 @@ per-hook timing breakdown; see the module docstring in
   `validate_output` regardless of what it says, and no scenario feeds fetched
   document content back into a proposal decision.
 - This is a reference implementation, not a production MCP/RAG integration.
-  Agentlog does not ship a real MCP adapter yet (`docs/positioning.md`
-  Sec. "MCP lifecycle").
+  Agentlog's optional `MCPTool` adapter is deliberately not used here; the
+  separate `examples/local_qaqc/` lab exercises that real protocol boundary.
 - The `score >= 0.78` relevance threshold in `validate_output` is an
   illustrative constant, not a calibrated value. A real deployment needs a
   labeled eval dataset and a precision/recall trade-off analysis before

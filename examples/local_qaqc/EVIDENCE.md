@@ -37,6 +37,42 @@ full process reopen:
   persisted completed history reopened as RunCompleted with 4 tool successes
 ```
 
+## Packaged MCP adapter verification — 2026-08-03
+
+The lab was rebuilt with `agentlog.MCPTool` from the installed package and MCP
+Python SDK 1.29.0; the previous inline SDK transport was removed from
+`app.py`.
+
+Fresh deterministic HTTP acceptance:
+
+```text
+run: packaged-mcp-happy-20260803
+terminal: RunCompleted
+ToolCallRequested: 4
+committed tool outcomes: 4
+duplicate start: HTTP 409
+```
+
+Crash after the remote `save_report` invocation but before local artifact
+registration:
+
+```text
+run: packaged-mcp-crash-20260803
+process exit: 86
+logical tool requests: 4
+physical MCP CallTool requests: 5
+committed save_report results: 1
+terminal after restart: RunCompleted
+operation_id: 2791a6dd-3847-4375-9800-f32672f7354d
+```
+
+The first three tools ran once and `save_report` ran twice across the crash.
+FastMCP server logs supplied the physical request count. The single committed
+`ToolCallSucceeded`, artifact `version`, and `created_causation` all carried the
+same persisted `ToolCallRequested` operation identity. This is selected runtime
+evidence for at-least-once execution and at-most-one committed result, not a
+production retry metric or exactly-once physical execution claim.
+
 ## Ollama boundary
 
 `OllamaProvider` reached the local `llama3.2:1b` service successfully. Two

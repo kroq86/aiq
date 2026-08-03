@@ -535,7 +535,9 @@ Agentlog 0.3 эту модель управления полностью не р
 - детерминированная лаборатория контроля качества проверяет сквозной сценарий;
 - поставщик Ollama проверяет отдельную границу интеграции с настоящей моделью.
 
-Ядро среды исполнения не имеет обязательных сторонних зависимостей. FastAPI и Ollama устанавливаются как необязательные дополнения; лаборатория MCP/MinIO использует отдельное локальное окружение.
+Ядро среды исполнения не имеет обязательных сторонних зависимостей. FastAPI,
+Ollama и MCP Streamable HTTP client устанавливаются как необязательные
+дополнения; лаборатория MCP/MinIO использует отдельное локальное окружение.
 
 ## Запуск и проверка
 
@@ -546,7 +548,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 python -m pip install --upgrade pip
-python -m pip install -e ".[test,test-fastapi,ollama]"
+python -m pip install -e ".[test,test-fastapi,ollama,mcp]"
 
 PYTHONWARNINGS=error \
 python -m unittest discover -s tests -v
@@ -565,6 +567,7 @@ PYTHONPATH=src python3 examples/chat_mcp_agent/main.py
 - [артефакты](docs/artifacts.md);
 - [последовательность](docs/sequence.md);
 - [FastAPI](docs/fastapi.md);
+- [MCP Streamable HTTP adapter](docs/mcp.md);
 - [причинная трасса](docs/flow-xray.md);
 - [локальная лаборатория контроля качества](examples/local_qaqc/README.md);
 - [формальные модели](docs/model-verification.md).
@@ -591,6 +594,7 @@ PYTHONPATH=src python3 examples/chat_mcp_agent/main.py
   agentlog.TraceService
   agentlog.build_causal_trace
   agentlog.trace_to_json
+  agentlog.MCPTool
 
 расширенное встраивание FastAPI:
   agentlog.fastapi.Agentlog
