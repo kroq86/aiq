@@ -6,6 +6,16 @@ correctness claims.
 
 ## Unreleased
 
+## 0.5.2 - 2026-08-03
+
+### Changed
+
+- Publish the project as the `aiq-runtime` distribution while preserving the
+  `aiq` Python import package and CLI command. PyPI rejected the shorter
+  distribution name under its project-name similarity policy.
+- Move GitHub Actions dependencies to Node.js 24-compatible major versions and
+  disable attestations for explicit API-token authentication.
+
 ## 0.5.1 - 2026-08-03
 
 ### Added

@@ -28,6 +28,13 @@ class ReleaseMetadataContractTests(unittest.TestCase):
 
         self.assertEqual(self.project["project"]["version"], latest_version)
 
+    def test_distribution_name_is_separate_from_aiq_import_name(self) -> None:
+        self.assertEqual(self.project["project"]["name"], "aiq-runtime")
+        self.assertEqual(
+            self.project["project"]["scripts"]["aiq"],
+            "aiq.evals.cli:main",
+        )
+
     def test_unreleased_precedes_unique_descending_release_history(self) -> None:
         unreleased_at = self.changelog.index("## Unreleased")
         first_release_at = RELEASE_HEADING.search(self.changelog)
@@ -50,6 +57,7 @@ class ReleaseMetadataContractTests(unittest.TestCase):
                 "0.4.3",
                 "0.5.0",
                 "0.5.1",
+                "0.5.2",
             },
         )
 

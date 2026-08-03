@@ -1,8 +1,8 @@
 # AIQ — Durable AI Agent Runtime for Python
 
-[![PyPI](https://img.shields.io/pypi/v/aiq)](https://pypi.org/project/aiq/)
-[![Python](https://img.shields.io/pypi/pyversions/aiq)](https://pypi.org/project/aiq/)
-[![License](https://img.shields.io/pypi/l/aiq)](https://github.com/kroq86/aiq/blob/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/aiq-runtime)](https://pypi.org/project/aiq-runtime/)
+[![Python](https://img.shields.io/pypi/pyversions/aiq-runtime)](https://pypi.org/project/aiq-runtime/)
+[![License](https://img.shields.io/pypi/l/aiq-runtime)](https://github.com/kroq86/aiq/blob/main/LICENSE)
 
 AIQ is an event-sourced Python runtime for building durable AI agents and
 bounded LLM workflows. It keeps agent decisions, tool requests, validation
@@ -31,18 +31,19 @@ execute it durably, and prove what was committed after a restart.
 ## Installation
 
 ```bash
-pip install aiq
+pip install aiq-runtime
 ```
 
 Optional integrations:
 
 ```bash
-pip install "aiq[fastapi]"
-pip install "aiq[mcp]"
-pip install "aiq[ollama]"
+pip install "aiq-runtime[fastapi]"
+pip install "aiq-runtime[mcp]"
+pip install "aiq-runtime[ollama]"
 ```
 
-The Python package and command-line entry point are both named `aiq`:
+The PyPI distribution is `aiq-runtime`; the Python package and command-line
+entry point are both named `aiq`:
 
 ```python
 from aiq import Event, InMemoryEventStore

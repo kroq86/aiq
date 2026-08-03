@@ -1,7 +1,7 @@
 # AIQ — Durable AI Agent Runtime for Python
 
-[![PyPI](https://img.shields.io/pypi/v/aiq)](https://pypi.org/project/aiq/)
-[![Python](https://img.shields.io/pypi/pyversions/aiq)](https://pypi.org/project/aiq/)
+[![PyPI](https://img.shields.io/pypi/v/aiq-runtime)](https://pypi.org/project/aiq-runtime/)
+[![Python](https://img.shields.io/pypi/pyversions/aiq-runtime)](https://pypi.org/project/aiq-runtime/)
 [![PyPI publish](https://github.com/kroq86/aiq/actions/workflows/publish-pypi.yml/badge.svg)](https://github.com/kroq86/aiq/actions)
 [![License](https://img.shields.io/github/license/kroq86/aiq)](LICENSE)
 
@@ -10,7 +10,7 @@ workflows. It records model decisions, guarded tool calls, validation results,
 checkpoints, retries, and terminal outcomes as explicit replayable facts.
 
 ```bash
-pip install aiq
+pip install aiq-runtime
 ```
 
 ```python

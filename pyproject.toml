@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "aiq"
-version = "0.5.1"
+name = "aiq-runtime"
+version = "0.5.2"
 description = "Durable Python runtime for AI agents with event sourcing, guarded tools, replay, and SQLite lease fencing"
 readme = "PYPI.md"
 license = { file = "LICENSE" }
@@ -53,6 +53,9 @@ exclude = [
     "/docs/release-evidence-0.4.md",
     "/docs/release-evidence-0.5.md",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aiq"]
 
 [project.optional-dependencies]
 ollama = [
