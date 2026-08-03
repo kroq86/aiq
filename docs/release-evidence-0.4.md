@@ -290,22 +290,50 @@ files this v0.4 candidate does not touch (e.g. `tests/test_runtime.py`,
 `src/agentlog/llm.py`, `tests/model/reference.py`); those are pre-existing
 and out of scope for this candidate.
 
-## Dependency assumptions and skipped modules
+## Post-merge release verification
 
-The full repository suite was not executed in this environment because
-`fastapi`, `httpx`, and `hypothesis` are not installed in the active system
-Python (verified via `ModuleNotFoundError` on collection). Modules skipped
-for that reason in the commands above and elsewhere in this repository:
-`tests/model/test_fastapi_semantic_equivalence.py`,
-`tests/model/test_model_loop_state_machine.py`,
-`tests/test_e2e_scenarios.py`, `tests/test_fastapi_commands.py`,
-`tests/test_fastapi_embedding.py`, `tests/test_fastapi_embedding_contract.py`,
-`tests/test_fastapi_lifecycle.py`, `tests/test_fastapi_lifecycle_contract.py`,
-`tests/test_http.py`, `tests/test_model_loop_fastapi.py`,
-`tests/test_model_state_machine.py`, `tests/test_ollama_provider.py`,
-`tests/test_sse_cursor_contract.py`, `tests/test_trace_http_contract.py`.
-Package metadata remains `0.3.0`; this is a v0.4 candidate implementation and
-evidence set, not a published release.
+The implementation candidate base is commit
+`b7cc14e77021625a7e453935157e6adb73bbc50b`. Release verification was run
+from a clean `main` synchronized with `origin/main`, using Python 3.14.6,
+pytest 9.1.1, and the declared lint contract Ruff 0.15.12.
+
+```bash
+python -m pip install -e ".[test,test-fastapi,ollama,lint]"
+python -m pytest -q -rs
+# -> 290 passed, 2 skipped, 57 subtests passed
+```
+
+The two skips are the bounded formal tests that require the external `setdb`
+binary; `setdb` is not a Python package dependency and belongs to the separate
+formal environment. The focused v0.4 Ruff gate passed, all five runtime
+mutants were killed and independently restore-verified, and the installed
+wheel smoke passed the legacy `ToolPolicy`, new `ExecutionPolicy` goal gate,
+and `RunAbstained` terminal paths. Package metadata for this release is
+`0.4.0`.
+
+### Release boundaries
+
+This release does not establish an exhaustive bounded proof for the expanded
+v0.4 control-event vocabulary. It does not guarantee exactly-once physical
+execution, provide a real MCP adapter or production RAG implementation, or
+claim universal prompt-injection protection. The formal boundary and crash
+window are documented above; the v0.4 evidence for the new control events is
+runtime scenario, restart-equivalence, invariant, and targeted mutation
+evidence.
+
+### Release artifacts
+
+Built with `python -m build` 1.5.0 using the declared Hatchling backend:
+
+```text
+bf22b7ad598b9a19f078ee5c230b47a9a2fa6fdda550e68f1cbad1c5a9de373a  agentlog-0.4.0.tar.gz
+69cc644139ddce2164e5cedc0b2842cf5cfaf435dff782f38001cbc985079455  agentlog-0.4.0-py3-none-any.whl
+```
+
+Release-evidence documents are excluded from distributions so an sdist hash
+can be recorded here without creating a self-referential artifact. The wheel
+contains `agentlog/validation.py` and excludes `tests/`, `formal/`, and
+`scripts/`.
 
 ## Bounded corporate workflow gate
 

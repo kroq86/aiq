@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentlog"
-version = "0.3.0"
+version = "0.4.0"
 description = "Database-agnostic event log core for durable agents"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -29,6 +29,7 @@ agentlog = "agentlog.evals.cli:main"
 [tool.hatch.build]
 exclude = [
     "/docs/release-evidence-0.3.md",
+    "/docs/release-evidence-0.4.md",
 ]
 
 [project.optional-dependencies]
