@@ -7,8 +7,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from agentlog import InMemoryEventStore
-from agentlog.fastapi import Agentlog, compose_lifespans
+from aiq import InMemoryEventStore
+from aiq.fastapi import AIQ, compose_lifespans
 
 
 class _ControlledFailureDispatcher:
@@ -37,8 +37,8 @@ class _CancellableDispatcher:
             raise
 
 
-def _integration(*, shutdown_timeout_seconds: float = 0.01) -> Agentlog:
-    return Agentlog(
+def _integration(*, shutdown_timeout_seconds: float = 0.01) -> AIQ:
+    return AIQ(
         store=InMemoryEventStore(),
         runtimes={},
         poll_interval_seconds=60,
@@ -46,7 +46,7 @@ def _integration(*, shutdown_timeout_seconds: float = 0.01) -> Agentlog:
     )
 
 
-def _install_dispatcher(integration: Agentlog, dispatcher: object) -> None:
+def _install_dispatcher(integration: AIQ, dispatcher: object) -> None:
     integration._reaction_dispatchers = [dispatcher]
     integration._effect_dispatchers = []
 

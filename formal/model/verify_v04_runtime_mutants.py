@@ -7,7 +7,7 @@ formal/*/verify-mutants) -- those mutate a pure finite model via a
 compiled --mutant variant with no file patching. There is no equivalent
 mechanism for the real, compiled `DurableModelLoop` runtime, so this script
 does literal, in-memory, restore-guaranteed source patching of
-src/agentlog/model_loop.py:
+src/aiq/model_loop.py:
 
   1. read the current file content into memory (whatever is on disk right
      now -- this repo's model_loop.py is an uncommitted work-in-progress
@@ -36,7 +36,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TARGET = REPO_ROOT / "src" / "agentlog" / "model_loop.py"
+TARGET = REPO_ROOT / "src" / "aiq" / "model_loop.py"
 
 MUTANTS: dict[str, dict[str, str]] = {
     "goal_gate_disabled": {

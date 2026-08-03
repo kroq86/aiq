@@ -29,7 +29,7 @@ def _load_executor(reference: str) -> TraceExecutor:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="agentlog")
+    parser = argparse.ArgumentParser(prog="aiq")
     commands = parser.add_subparsers(dest="command", required=True)
     eval_parser = commands.add_parser("eval", help="evaluate durable agent traces")
     eval_commands = eval_parser.add_subparsers(dest="eval_command", required=True)
@@ -98,7 +98,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         return 1 if comparison.regression_count else 0
     except (ImportError, AttributeError, OSError, TypeError, ValueError) as error:
-        print(f"agentlog eval: {error}", file=sys.stderr)
+        print(f"aiq eval: {error}", file=sys.stderr)
         return 2
 
 

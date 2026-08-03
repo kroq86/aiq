@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
-from agentlog.evals import EvalCase, RestartPoint, UnsupportedRestartPoint
-from agentlog.trace import CausalTrace, build_causal_trace
+from aiq.evals import EvalCase, RestartPoint, UnsupportedRestartPoint
+from aiq.trace import CausalTrace, build_causal_trace
 
 from .runtime_harness import RuntimeHarness
 

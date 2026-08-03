@@ -2,7 +2,7 @@
 
 ## Protocol scope
 
-Local integration of FastAPI, Agentlog `DurableModelLoop`, official MCP Python
+Local integration of FastAPI, AIQ `DurableModelLoop`, official MCP Python
 SDK v1 Streamable HTTP, MinIO versioned objects, `SQLiteArtifactStore`, and
 `SQLiteEventStore`. This is runtime scenario evidence, not formal proof or
 universal implementation refinement.
@@ -39,7 +39,7 @@ full process reopen:
 
 ## Packaged MCP adapter verification — 2026-08-03
 
-The lab was rebuilt with `agentlog.MCPTool` from the installed package and MCP
+The lab was rebuilt with `aiq.MCPTool` from the installed package and MCP
 Python SDK 1.29.0; the previous inline SDK transport was removed from
 `app.py`.
 
@@ -119,7 +119,7 @@ terminal:      RunFailed (maximum tool calls exceeded)
 Cold loading is therefore not the dominant cost. Ollama documents thinking as
 enabled by default for Qwen3 and accepts a top-level `think: false` API option.
 The provider version used for these measurements did not send that option, so
-the runs used Ollama's default thinking mode. Agentlog does not persist the
+the runs used Ollama's default thinking mode. AIQ does not persist the
 separate `message.thinking` response field, which means the durable
 observations cannot split the reported output-token cost between thinking and
 final content. Across two runs, protocol capability was demonstrated,
@@ -225,6 +225,6 @@ scenario evidence rather than a byte-for-byte reproducible lab environment.
 
 ```bash
 docker compose -f examples/local_qaqc/docker-compose.yml up --build -d \
-  minio minio-init mcp-server agentlog
+  minio minio-init mcp-server aiq
 python3 examples/local_qaqc/verify_acceptance.py
 ```

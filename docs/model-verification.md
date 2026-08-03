@@ -1,7 +1,7 @@
 # Executable model verification
 
-Agentlog 0.2 is checked against a small pure reference interpreter in
-`tests/model/reference.py`. The interpreter does not import Agentlog, SQLite,
+AIQ 0.2 is checked against a small pure reference interpreter in
+`tests/model/reference.py`. The interpreter does not import AIQ, SQLite,
 FastAPI, Ollama, or runtime classes. It models an ordered history, the two
 subscription checkpoints, terminal status, causal identity, and the durable
 single-tool continuation.
@@ -97,7 +97,7 @@ action rather than only at the end of a run.
 ## FastAPI equivalence
 
 The same deterministic definition is executed directly and through
-`AgentlogApplication`:
+`AIQApplication`:
 
 \[
 Normalize(H_{direct})=Normalize(H_{http})
@@ -120,7 +120,7 @@ oracle rejects:
 
 This validates the oracle. It is **not** source mutation testing of production
 code. A CI mutation job (for example, mutmut or an equivalent tool) is not
-configured yet, so Agentlog does not claim a mutation score. The source-level
+configured yet, so AIQ does not claim a mutation score. The source-level
 mutation matrix to add is:
 
 ```text
@@ -145,7 +145,7 @@ model/tool failures and forced terminal races are generated. It does not model
 multiple-tool joins, streaming providers, child runs, or arbitrary user
 reducers.
 
-Agent definition version remains explicit and user-owned. Agentlog validates
+Agent definition version remains explicit and user-owned. AIQ validates
 tool-definition/resource drift but does not automatically derive the complete
 `definition_version` from Python code.
 
@@ -167,7 +167,11 @@ do not require `setdb`:
   targeted mutants;
 - `formal/run_abstained/`: request/result validation-failure routing,
   8 reachable states, both terminal outcomes witnessed, five killed targeted
-  mutants.
+  mutants;
+- `formal/lease_gate/`: two-worker SQLite ownership, confirmation, expiry,
+  takeover, and fenced commit, 20,361 states within bound 8, six bounded
+  semantic mutants, plus 12 killed runtime source mutants with SHA-256
+  restoration.
 
 These are local bounded-exhaustive checks. They do not modify the trace
 reference interpreter, prove arbitrary Python predicates, or establish
@@ -175,7 +179,7 @@ composition with the base lifecycle.
 
 ## Bounded exhaustive exploration with setdb
 
-`formal/setdb/check_agentlog_model.py` exhaustively explores every reachable
+`formal/setdb/check_aiq_model.py` exhaustively explores every reachable
 state of the complete finite reference policy and records its state graph in
 `kroq86/setdb`. The normal model must have an empty `violations` set; an
 intentional duplicate-terminal mutation must produce a shortest counterexample.

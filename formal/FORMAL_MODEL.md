@@ -1,8 +1,8 @@
-# Agentlog 0.2 formal model
+# AIQ 0.2 formal model
 
 ## 1. Scope and claim boundary
 
-Agentlog is modeled as several small transition systems rather than one
+AIQ is modeled as several small transition systems rather than one
 universal state machine:
 
 ```text
@@ -157,7 +157,7 @@ the same properties (not a reference-model proof) lives in
 `tests/test_v04_constrained_execution_e2e.py::V04ControlRestartEquivalenceTests`
 and the targeted mutation table in `docs/release-evidence-0.4.md`.
 
-Three narrow slices of this gap have since been checked as *separate* standalone
+Four narrow slices have since been checked as *separate* standalone
 small models rather than by extending `spec.py` (same convention as
 `formal/middleware/` and `formal/sequence/`, no `setdb` dependency):
 
@@ -168,13 +168,20 @@ small models rather than by extending `spec.py` (same convention as
   reachable and five killed targeted mutants;
 - `formal/run_abstained/` covers request/result validation-failure routing in
   8 reachable states, with both terminal outcomes reachable and five killed
-  targeted mutants.
+  targeted mutants;
+- `formal/lease_gate/` covers two-worker SQLite claim, renewal, expiry,
+  takeover, ownership confirmation, handler admission, and fenced commit
+  within transition bound 8: 20,361 reachable normalized states and six
+  killed bounded semantic mutants. A separate runtime mutation gate kills 12
+  source mutants and verifies SHA-256 restoration after every mutation.
 
 None of these local models modifies `spec.py` or establishes universal runtime
 refinement. `RunAbstained` therefore remains unreachable in that base reference
 model even though it is non-vacuously covered by its standalone model. The
 composition question of whether these local checks combine with the base
-lifecycle remains open. See each model's README for its precise scope.
+lifecycle and crash-window model remains open. The lease model establishes no
+exactly-once physical execution or liveness claim. See each model's README for
+its precise scope.
 
 ## 3. Concrete single-run integration model
 
@@ -643,7 +650,7 @@ EventStoreAbstract\models StoreSafety
 
 The correct product claim is:
 
-> Agentlog 0.2 implements a durable model/tool loop for FastAPI agents. Its
+> AIQ 0.2 implements a durable model/tool loop for FastAPI agents. Its
 > model-loop semantics has a saturated concrete witness, an inductively checked
 > parameterized abstraction, and scenario-based runtime refinement. Its
 > crash-window safety has a separate inductive abstraction and one real

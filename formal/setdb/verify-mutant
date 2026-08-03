@@ -2,13 +2,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE="${1:-agentlog_model_mutant.asm}"
+SOURCE="${1:-aiq_model_mutant.asm}"
 PROPERTY="${2:-AtMostOneTerminal}"
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-mutant.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/aiq-mutant.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
 SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
-if [[ -z "$SETDB_BIN" && -x /tmp/agentlog-setdb-bin ]]; then SETDB_BIN=/tmp/agentlog-setdb-bin; fi
+if [[ -z "$SETDB_BIN" && -x /tmp/aiq-setdb-bin ]]; then SETDB_BIN=/tmp/aiq-setdb-bin; fi
 [[ -n "$SETDB_BIN" ]] || { echo 'setdb not found; set SETDB_BIN' >&2; exit 2; }
 
 (cd "$ROOT" && "$FASM_BIN" "$SOURCE" "$WORK/model" >/dev/null)

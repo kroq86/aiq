@@ -8,9 +8,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from agentlog import InMemoryEventStore
-from agentlog.fastapi import AgentlogApplication
-from agentlog.framework import Agent
+from aiq import InMemoryEventStore
+from aiq.fastapi import AIQApplication
+from aiq.framework import Agent
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,7 @@ def define_agent() -> Agent:
 
 def build_app() -> FastAPI:
     definition = define_agent()
-    application = AgentlogApplication(
+    application = AIQApplication(
         store=InMemoryEventStore(),
         poll_interval_seconds=0.01,
     )
@@ -98,7 +98,7 @@ async def read_sse_history(
     endpoint = next(
         route.endpoint
         for route in app.state.agents.router.routes
-        if route.name == "agentlog:stream_run"
+        if route.name == "aiq:stream_run"
     )
     response = await endpoint("assistant", run_id, request)
     iterator = response.body_iterator.__aiter__()

@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
 SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
-[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-store.XXXXXX")"
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/aiq-setdb-bin
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/aiq-store.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 (cd "$ROOT" && "$FASM_BIN" store_model_normal.asm "$WORK/model" >/dev/null)

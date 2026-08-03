@@ -42,7 +42,7 @@ class ReleaseMetadataContractTests(unittest.TestCase):
     def test_reconstructed_release_sections_are_present(self) -> None:
         self.assertEqual(
             {version for version, _ in self.releases},
-            {"0.3.0", "0.4.0", "0.4.1", "0.4.2", "0.4.3"},
+            {"0.3.0", "0.4.0", "0.4.1", "0.4.2", "0.4.3", "0.5.0"},
         )
 
 

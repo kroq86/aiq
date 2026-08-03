@@ -10,7 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from minio import Minio
 from minio.error import S3Error
 
-BUCKET = os.getenv("MINIO_BUCKET", "agentlog-lab")
+BUCKET = os.getenv("MINIO_BUCKET", "aiq-lab")
 POLICY = os.getenv("QA_POLICY", "allow")
 FAULT = os.getenv("MCP_FAULT", "none")
 
@@ -21,7 +21,7 @@ client = Minio(
     secure=False,
 )
 mcp = FastMCP(
-    "agentlog-local-qaqc",
+    "aiq-local-qaqc",
     host="0.0.0.0",
     port=8001,
     stateless_http=True,

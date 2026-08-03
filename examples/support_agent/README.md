@@ -1,20 +1,20 @@
 # support_agent
 
 The one reference app: a small but real support agent using only
-Agentlog's public API (`agentlog.Agent`, `agentlog.CommandRejected`,
-`agentlog.EffectFailed`, `agentlog.SQLiteEventStore`,
-`agentlog.fastapi.AgentlogApplication`) — see `main.py` and the repo
+AIQ's public API (`aiq.Agent`, `aiq.CommandRejected`,
+`aiq.EffectFailed`, `aiq.SQLiteEventStore`,
+`aiq.fastapi.AIQApplication`) — see `main.py` and the repo
 README's "Public API" section.
 
 This is the literal walkthrough for the project's own acceptance test:
 
-> Install Agentlog, run the example, kill the process, start it again, see
+> Install AIQ, run the example, kill the process, start it again, see
 > the run continue and its causal trace — without opening `runtime.py`.
 
 ## Run it
 
 ```bash
-pip install "agentlog[fastapi]"   # or: pip install -e ".[fastapi]" from the repo root
+pip install "aiq[fastapi]"   # or: pip install -e ".[fastapi]" from the repo root
 python examples/support_agent/main.py support-agent.db
 ```
 
@@ -49,7 +49,7 @@ just a completed one being read again.
 python examples/support_agent/main.py support-agent.db
 ```
 
-**5. Read the state** — a fresh process, fresh `Agent`/`AgentlogApplication`
+**5. Read the state** — a fresh process, fresh `Agent`/`AIQApplication`
 objects, same SQLite file. Nothing in this response depends on anything
 that only existed in the killed process's memory:
 

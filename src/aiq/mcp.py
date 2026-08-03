@@ -1,4 +1,4 @@
-"""Streamable HTTP MCP adapter for Agentlog's existing ``Tool`` contract."""
+"""Streamable HTTP MCP adapter for AIQ's existing ``Tool`` contract."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ try:
     from mcp.types import TextContent
 except ImportError as error:  # pragma: no cover - depends on optional installation
     raise ImportError(
-        "MCPTool requires the 'mcp' extra: pip install agentlog[mcp]"
+        "MCPTool requires the 'mcp' extra: pip install aiq[mcp]"
     ) from error
 
 from .core import Event, JsonValue
@@ -39,7 +39,7 @@ def _validated_result(value: object) -> JsonValue:
 class MCPTool:
     """Call one statically declared MCP tool over Streamable HTTP.
 
-    Agentlog owns the durable request and committed outcome. This adapter owns
+    AIQ owns the durable request and committed outcome. This adapter owns
     only one physical MCP session/call and deliberately performs no retries or
     deduplication.
     """

@@ -7,7 +7,7 @@ import unittest
 from dataclasses import dataclass, replace
 from functools import partial
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     DurableDispatcher,
     DurableEffectDispatcher,
@@ -25,7 +25,7 @@ from agentlog import (
     agent_owns_stream,
     run_stream_id,
 )
-from agentlog.llm import (
+from aiq.llm import (
     MODEL_CALL_FAILED,
     MODEL_CALL_REJECTED,
     MODEL_CALL_REQUESTED,

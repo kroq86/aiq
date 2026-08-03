@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentlog"
-version = "0.4.3"
+name = "aiq"
+version = "0.5.0"
 description = "Database-agnostic event log core for durable agents"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -24,12 +24,13 @@ classifiers = [
 ]
 
 [project.scripts]
-agentlog = "agentlog.evals.cli:main"
+aiq = "aiq.evals.cli:main"
 
 [tool.hatch.build]
 exclude = [
     "/docs/release-evidence-0.3.md",
     "/docs/release-evidence-0.4.md",
+    "/docs/release-evidence-0.5.md",
 ]
 
 [project.optional-dependencies]

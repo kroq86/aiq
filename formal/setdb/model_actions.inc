@@ -1,4 +1,4 @@
-; Transition relation for the bounded Agentlog 0.2 model.
+; Transition relation for the bounded AIQ 0.2 model.
 ; rdi=parent, esi=action, rdx=child; rax=1 valid / 0 invalid.
 
 apply_action:

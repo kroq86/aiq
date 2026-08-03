@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from agentlog import (
+from aiq import (
     Agent,
     ArtifactRef,
     DurableModelLoop,
@@ -29,11 +29,11 @@ from agentlog import (
     ToolRegistry,
     run_stream_id,
 )
-from agentlog.fastapi import AgentlogApplication
+from aiq.fastapi import AIQApplication
 
 MCP_URL = os.getenv("MCP_URL", "http://mcp-server:8001/mcp")
 DATASET = "datasets/orders.json"
-FAULT = os.getenv("AGENTLOG_FAULT", "none")
+FAULT = os.getenv("AIQ_FAULT", "none")
 FAULT_DIR = Path(os.getenv("FAULT_DIR", "/data/faults"))
 
 
@@ -217,7 +217,7 @@ class StartRequest(BaseModel):
 
 async def build() -> FastAPI:
     event_store = await SQLiteEventStore.open(
-        Path(os.getenv("AGENTLOG_DB", "/data/agentlog.db"))
+        Path(os.getenv("AIQ_DB", "/data/aiq.db"))
     )
     artifacts = await SQLiteArtifactStore.open(
         Path(os.getenv("ARTIFACT_DB", "/data/artifacts.db"))
@@ -225,7 +225,7 @@ async def build() -> FastAPI:
     registry = ToolRegistry()
     for item in DEFINITIONS:
         registry.register(QaqcMCPTool(item, artifacts))
-    if os.getenv("AGENTLOG_PROVIDER", "deterministic") == "ollama":
+    if os.getenv("AIQ_PROVIDER", "deterministic") == "ollama":
         provider = OllamaProvider(
             model=os.getenv("OLLAMA_MODEL", "llama3.2:1b"),
             url=os.getenv("OLLAMA_URL", "http://ollama:11434/api/chat"),
@@ -234,7 +234,7 @@ async def build() -> FastAPI:
     else:
         provider = DeterministicProvider()
     agent = define_agent(registry)
-    application = AgentlogApplication(store=event_store, poll_interval_seconds=0.05)
+    application = AIQApplication(store=event_store, poll_interval_seconds=0.05)
     application.register(agent, resources={"provider": provider, "mcp": registry})
 
     @asynccontextmanager
@@ -248,13 +248,13 @@ async def build() -> FastAPI:
                 await close()
 
     api = FastAPI(lifespan=lifespan)
-    api.include_router(application.router, prefix="/agentlog")
+    api.include_router(application.router, prefix="/aiq")
 
     @api.get("/health")
     async def health():
         return {
             "status": "ok",
-            "provider": os.getenv("AGENTLOG_PROVIDER", "deterministic"),
+            "provider": os.getenv("AIQ_PROVIDER", "deterministic"),
         }
 
     @api.post("/runs", status_code=202)

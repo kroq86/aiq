@@ -1,9 +1,9 @@
 # FastAPI integration
 
-Agentlog is an embedded runtime for FastAPI applications, not a separate
-orchestration server. `agentlog.fastapi.Agentlog` is the one canonical
+AIQ is an embedded runtime for FastAPI applications, not a separate
+orchestration server. `aiq.fastapi.AIQ` is the one canonical
 implementation of routes, broadcaster, background catch-up lifecycle, and
-agent-ownership wiring; `agentlog.http.create_app()` is a convenience
+agent-ownership wiring; `aiq.http.create_app()` is a convenience
 wrapper around it, not a second implementation.
 
 FastAPI remains an **optional** dependency of the core package (see
@@ -14,40 +14,40 @@ FastAPI remains an **optional** dependency of the core package (see
 ### Standalone convenience
 
 ```python
-from agentlog.http import create_app
+from aiq.http import create_app
 
 app = create_app(store=store, runtimes={"energy-assistant": runtime})
 ```
 
-Builds one `Agentlog` integration and gives it its own dedicated `FastAPI`
+Builds one `AIQ` integration and gives it its own dedicated `FastAPI`
 app. Routes land at `/agents/...` with no extra prefix. Use this when
-Agentlog is the whole application.
+AIQ is the whole application.
 
 ### Embedding into an existing application
 
 ```python
 from fastapi import FastAPI
-from agentlog.fastapi import Agentlog
+from aiq.fastapi import AIQ
 
-agentlog = Agentlog(
+aiq = AIQ(
     store=store,
     runtimes={"energy-assistant": runtime},
 )
 
-app = FastAPI(lifespan=agentlog.lifespan)
-app.include_router(agentlog.router, prefix="/api")
+app = FastAPI(lifespan=aiq.lifespan)
+app.include_router(aiq.router, prefix="/api")
 ```
 
 The host application owns `app`: its own routes, its own lifespan slot (see
 [Lifespan composition](#lifespan-composition) if the host already has one),
-its own middleware. Agentlog only ever touches its own `APIRouter` and its
+its own middleware. AIQ only ever touches its own `APIRouter` and its
 own background task -- it never mounts itself onto the host app directly,
 and never takes over routes or lifecycle the host didn't hand it.
 
 ## Constructor
 
 ```python
-class Agentlog:
+class AIQ:
     def __init__(
         self,
         *,
@@ -68,15 +68,15 @@ time.
 
 ## Routes and prefix behavior
 
-`agentlog.router` is a plain `APIRouter` with its own internal prefix
+`aiq.router` is a plain `APIRouter` with its own internal prefix
 (`route_prefix`, default `/agents`) already applied. `route_prefix`
-controls *only* that Agentlog-local root -- it never hardcodes or assumes
+controls *only* that AIQ-local root -- it never hardcodes or assumes
 anything about the host's own prefix. Composition follows ordinary FastAPI
 `include_router` semantics:
 
 ```python
-app.include_router(agentlog.router)                 # /agents/...
-app.include_router(agentlog.router, prefix="/api")   # /api/agents/...
+app.include_router(aiq.router)                 # /agents/...
+app.include_router(aiq.router, prefix="/api")   # /api/agents/...
 ```
 
 Exposed route family (relative to wherever it's mounted):
@@ -90,7 +90,7 @@ GET  /agents/{agent_name}/runs/{run_id}/trace
 
 The same router object can be mounted more than once under distinct
 prefixes on one app; each mount serves the same underlying store correctly.
-Route names use the stable `agentlog:*` namespace so generated OpenAPI
+Route names use the stable `aiq:*` namespace so generated OpenAPI
 operation IDs remain distinct from similarly named host handlers.
 
 ### SSE reconnect cursor
@@ -130,7 +130,7 @@ informational for `stopped`/`starting`/`running`/`stopping`); **503** when
 detect a dead background dispatcher instead of only discovering it later
 when `stop()` runs.
 
-This endpoint describes only the Agentlog background dispatcher lifecycle.
+This endpoint describes only the AIQ background dispatcher lifecycle.
 It is not a complete database, network, effect-adapter, or host-application
 health check.
 
@@ -161,7 +161,7 @@ async def lifespan(self, app: FastAPI): ...
 ### Health states
 
 ```python
-class AgentlogHealth:
+class AIQHealth:
     status: Literal["stopped", "starting", "running", "unhealthy", "stopping"]
     worker_error: str | None
 
@@ -170,8 +170,8 @@ class AgentlogHealth:
 ```
 
 ```python
-agentlog.health       # -> AgentlogHealth, a fresh snapshot on every access
-agentlog.is_healthy    # -> bool, shorthand for health.status != "unhealthy"
+aiq.health       # -> AIQHealth, a fresh snapshot on every access
+aiq.is_healthy    # -> bool, shorthand for health.status != "unhealthy"
 ```
 
 The raw background `asyncio.Task` is never part of the public API --
@@ -206,10 +206,10 @@ failure stays visible in `worker_error` for diagnostics until the *next*
 `start()` clears it for a fresh run:
 
 ```python
-await agentlog.start()   # worker fails -> status="unhealthy", worker_error set
-await agentlog.start()   # raises RuntimeError: still unhealthy, call stop() first
-await agentlog.stop()    # status -> "stopped"; worker_error still set
-await agentlog.start()   # works: fresh task, worker_error reset to None
+await aiq.start()   # worker fails -> status="unhealthy", worker_error set
+await aiq.start()   # raises RuntimeError: still unhealthy, call stop() first
+await aiq.stop()    # status -> "stopped"; worker_error still set
+await aiq.start()   # works: fresh task, worker_error reset to None
 ```
 
 ### Bounded shutdown
@@ -222,7 +222,7 @@ await agentlog.start()   # works: fresh task, worker_error reset to None
 3. if it does, `stop()` returns normally;
 4. if it times out, the worker is cancelled and *awaited* -- `stop()`
    does not return until the cancellation has actually completed, so no
-   Agentlog task is ever left running after `stop()` returns;
+   AIQ task is ever left running after `stop()` returns;
 5. forced cancellation during `stop()` is normal, expected shutdown -- it
    does **not** mark the instance `"unhealthy"`; status still lands on
    `"stopped"`.
@@ -235,13 +235,13 @@ actually cooperating with asyncio (i.e. blocked at an `await`). It cannot
 forcibly interrupt arbitrary blocking synchronous Python code (a tight CPU
 loop, a blocking `socket.recv()` without a timeout, etc.) running inside a
 dispatcher or effect handler -- that code has to bring its own timeout, or
-run on a thread/process Agentlog can actually cancel from the outside.
-Agentlog does not (and cannot) forcibly interrupt arbitrary Python code.
+run on a thread/process AIQ can actually cancel from the outside.
+AIQ does not (and cannot) forcibly interrupt arbitrary Python code.
 
 ### Logging
 
 All lifecycle events go through the standard `logging` module (logger
-name `agentlog.fastapi`), never `print`: worker started, worker failed
+name `aiq.fastapi`), never `print`: worker started, worker failed
 (with full traceback via `logger.exception`), graceful shutdown requested,
 graceful shutdown timed out, worker cancelled, worker stopped.
 
@@ -252,16 +252,16 @@ already has one, compose the two explicitly instead of nesting `async with`
 by hand:
 
 ```python
-from agentlog.fastapi import Agentlog, compose_lifespans
+from aiq.fastapi import AIQ, compose_lifespans
 
-agentlog = Agentlog(store=store, runtimes=runtimes)
+aiq = AIQ(store=store, runtimes=runtimes)
 app = FastAPI(
-    lifespan=compose_lifespans(existing_lifespan, agentlog.lifespan)
+    lifespan=compose_lifespans(existing_lifespan, aiq.lifespan)
 )
 ```
 
 Entered in the given order, exited in reverse -- built on `AsyncExitStack`,
-so if one lifespan's shutdown raises, the others still run theirs. Agentlog
+so if one lifespan's shutdown raises, the others still run theirs. AIQ
 never monkey-patches `app.router.lifespan_context`; composition is always
 explicit and visible at the call site.
 
@@ -269,41 +269,41 @@ explicit and visible at the call site.
 
 ```python
 def create_app(*, store, runtimes) -> FastAPI:
-    integration = Agentlog(store=store, runtimes=runtimes)
+    integration = AIQ(store=store, runtimes=runtimes)
     app = FastAPI(lifespan=integration.lifespan)
     app.include_router(integration.router)
     return app
 ```
 
 Same routes, same lifecycle, same broadcaster, same ownership wiring as
-embedding -- `create_app` is sugar over `Agentlog`, not a parallel
+embedding -- `create_app` is sugar over `AIQ`, not a parallel
 implementation that could drift from it.
 
 ## Optional dependency
 
 ```python
-import agentlog                          # always works, no FastAPI required
-from agentlog.fastapi import Agentlog     # requires the `fastapi` extra
+import aiq                          # always works, no FastAPI required
+from aiq.fastapi import AIQ     # requires the `fastapi` extra
 ```
 
-If FastAPI isn't installed, importing `agentlog.fastapi` raises a plain
-`ImportError` naming the extra to install (`pip install 'agentlog[fastapi]'`)
-instead of a bare `ModuleNotFoundError`. `agentlog/__init__.py` never
+If FastAPI isn't installed, importing `aiq.fastapi` raises a plain
+`ImportError` naming the extra to install (`pip install 'aiq[fastapi]'`)
+instead of a bare `ModuleNotFoundError`. `aiq/__init__.py` never
 imports `.fastapi` or `.http`, so a core-only installation stays usable.
 
 ## What this is not
 
-- Not a required orchestration server -- Agentlog runs embedded, in the
+- Not a required orchestration server -- AIQ runs embedded, in the
   host's own process.
 - Not ownership of the host application -- the host's routes, middleware,
   and other lifespan concerns are untouched.
 - Not a visualization layer -- [Flow Xray](flow-xray.md) is an optional,
-  separate consumer of the trace JSON these routes (and `agentlog.demo`)
+  separate consumer of the trace JSON these routes (and `aiq.demo`)
   produce; nothing here depends on it.
 - Not supervised or retried -- a failed worker stays `"unhealthy"` until a
   human (or an operator's own supervisor) calls `stop()`/`start()`; there
   is no backoff/retry policy in this MVP.
-- Not multi-process aware -- one `Agentlog` instance's catch-up task polls
+- Not multi-process aware -- one `AIQ` instance's catch-up task polls
   from a single process. Coordinating multiple worker processes over the
   same store is not implemented.
 - Not exactly-once external execution -- durable effects remain at-least-once

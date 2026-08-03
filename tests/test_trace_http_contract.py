@@ -6,7 +6,7 @@ from pathlib import Path
 
 import httpx
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     EffectContext,
     EffectRegistry,
@@ -15,7 +15,7 @@ from agentlog import (
     effect_request,
     run_stream_id,
 )
-from agentlog.http import AgentRuntime, create_app
+from aiq.http import AgentRuntime, create_app
 
 
 @dataclass(frozen=True)

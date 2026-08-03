@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 EXECUTOR_SOURCE = """
 from datetime import datetime, timezone
-from agentlog.trace import CausalTrace, TraceEvent
+from aiq.trace import CausalTrace, TraceEvent
 
 async def execute(case):
     completed = case.input == "pass"
@@ -58,7 +58,7 @@ class EvalCliTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "agentlog.evals.cli",
+                "aiq.evals.cli",
                 "eval",
                 "run",
                 str(dataset_path),
@@ -166,7 +166,7 @@ class EvalCliTests(unittest.TestCase):
                 [
                     sys.executable,
                     "-m",
-                    "agentlog.evals.cli",
+                    "aiq.evals.cli",
                     "eval",
                     "compare",
                     str(baseline),

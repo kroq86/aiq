@@ -1,13 +1,13 @@
 # Positioning and competitors
 
-Этот документ фиксирует конкурентную границу `agentlog`. Он не является
+Этот документ фиксирует конкурентную границу `aiq`. Он не является
 feature checklist или обещанием реализовать всё, что есть у других runtimes.
 
 Последняя проверка официальных источников: 2026-07-28.
 
 ## Честная категория
 
-`agentlog` находится в существующей категории durable execution. Сам принцип:
+`aiq` находится в существующей категории durable execution. Сам принцип:
 
 ```text
 durable history
@@ -28,13 +28,13 @@ durable history
 
 ## Предлагаемая граница
 
-> `agentlog` is an explicit event-sourced agent runtime for Python where the
+> `aiq` is an explicit event-sourced agent runtime for Python where the
 > causal domain-event history is the public programming model, embedded in the
 > application and usable without a separate server.
 
 Короткая формулировка:
 
-> Durable workflow systems persist execution. Agentlog makes the agent's causal
+> Durable workflow systems persist execution. AIQ makes the agent's causal
 > domain history the product.
 
 Это гипотеза позиционирования. Она станет реальным преимуществом только после
@@ -52,7 +52,7 @@ durable history
   восстановленные сценарии против реальных Ollama/MCP-крашей), а не
   exactly-once физическое исполнение.
 - Multi-worker safety пока не заявляется.
-- `EffectDispatchAttempt`/attempt ledger (`src/agentlog/attempts.py`) — это
+- `EffectDispatchAttempt`/attempt ledger (`src/aiq/attempts.py`) — это
   фундамент для будущего lease/claim protocol, а не сам lease protocol;
   несколько воркеров сейчас могут легитимно создать несколько физических
   попыток для одной операции.
@@ -89,13 +89,13 @@ handler/service code
 - stateful services;
 - pause/resume и orchestration patterns.
 
-Потенциальная граница `agentlog`:
+Потенциальная граница `aiq`:
 
 ```text
 Restate journal:
     runtime execution record
 
-agentlog events:
+aiq events:
     explicit public domain facts
 ```
 
@@ -118,7 +118,7 @@ orchestration server для локального приложения не об�
 Важная актуальная поправка:
 [DBOS Python guide](https://docs.dbos.dev/python/programming-guide) указывает,
 что SQLite используется по умолчанию, а PostgreSQL рекомендуется для production.
-Поэтому embedded/local-first и SQLite сами по себе не отличают `agentlog` от
+Поэтому embedded/local-first и SQLite сами по себе не отличают `aiq` от
 DBOS.
 
 DBOS также поддерживает
@@ -131,7 +131,7 @@ DBOS также поддерживает
 DBOS:
     durable Python functions and steps
 
-agentlog:
+aiq:
     explicit immutable agent domain events and reducers
 ```
 
@@ -162,7 +162,7 @@ LangGraph поддерживает:
 
 [Time travel documentation](https://docs.langchain.com/oss/python/langgraph/use-time-travel)
 явно описывает replay и fork. Поэтому эти слова нельзя использовать как
-самостоятельную уникальность `agentlog`.
+самостоятельную уникальность `aiq`.
 
 Различие:
 
@@ -170,7 +170,7 @@ LangGraph поддерживает:
 LangGraph source model:
     accumulated graph state and checkpoints
 
-agentlog source model:
+aiq source model:
     immutable domain events; state is disposable projection
 ```
 
@@ -200,7 +200,7 @@ Temporal — зрелый фундаментальный предшествен�
 - mature operational tooling;
 - broad language support.
 
-Граница `agentlog`:
+Граница `aiq`:
 
 - agent-specific domain events;
 - embedded single-process start;
@@ -217,10 +217,10 @@ Pydantic AI
 DBOS or Restate
 ```
 
-Она даёт удобный typed agent API и готовую durability. `agentlog` не должен
+Она даёт удобный typed agent API и готовую durability. `aiq` не должен
 соревноваться количеством LLM provider integrations.
 
-Причина выбрать `agentlog` должна быть связана с event model:
+Причина выбрать `aiq` должна быть связана с event model:
 
 - domain-level audit;
 - causal lineage;
@@ -237,7 +237,7 @@ DBOS or Restate
 | DBOS | Functions and steps | Workflow checkpoints | Yes, SQLite default | Replay and fork |
 | LangGraph | Graph state and nodes | State checkpoints | Yes | Replay and fork |
 | Temporal | Workflows and activities | Event History | No, service required | Replay |
-| agentlog | Domain events, reducers, reactions, effects | Immutable event log | Yes, SQLite | State replay; fork not implemented |
+| aiq | Domain events, reducers, reactions, effects | Immutable event log | Yes, SQLite | State replay; fork not implemented |
 
 ## Что может стать отличием
 
@@ -298,7 +298,7 @@ ToolCallRequested
 → ToolCallSucceeded | ToolCallFailed | ToolCallRejected
 ```
 
-`agentlog.MCPTool` реализует узкий настоящий client boundary через официальный
+`aiq.MCPTool` реализует узкий настоящий client boundary через официальный
 MCP Python SDK и Streamable HTTP. Он включается в обычный `ToolRegistry`, поэтому
 существующая structural JSON Schema validation и опциональная
 application-owned semantic policy выполняются до/после сетевого tool execution.
@@ -339,8 +339,8 @@ bidirectional domain-event/runtime-call IDs
 будущего bridge. Он не закрывает slice сам по себе: attempt record не содержит
 runtime span/call ID, Python subtree или подтверждение downstream I/O.
 
-Agentlog остаётся source of truth, Flow Xray — inspection/debugging UI. Отдельный
-trace viewer внутри Agentlog не планируется. Граница текущего contract и
+AIQ остаётся source of truth, Flow Xray — inspection/debugging UI. Отдельный
+trace viewer внутри AIQ не планируется. Граница текущего contract и
 future runtime-call correlation описаны в `docs/flow-xray.md`.
 
 Fork добавляется только после определения:
@@ -352,7 +352,7 @@ Fork добавляется только после определения:
 
 ## One-line verdict
 
-`agentlog` не выигрывает за счёт самой durability, SQLite или fork.
+`aiq` не выигрывает за счёт самой durability, SQLite или fork.
 
 Он может выиграть, если immutable causal agent history станет настолько
 удобным публичным API для audit, debugging, projections и branching, что

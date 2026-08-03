@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 
-from agentlog import (
+from aiq import (
     FunctionTool,
     ModelCallFailedError,
     ModelMessage,
@@ -13,7 +13,7 @@ from agentlog import (
     ToolDefinition,
     ToolRegistry,
 )
-from agentlog.llm import (
+from aiq.llm import (
     MODEL_CALL_FAILED,
     MODEL_CALL_SUCCEEDED,
     MODEL_OUTPUT_REJECTED,

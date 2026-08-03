@@ -5,7 +5,7 @@ import hashlib
 import unittest
 from dataclasses import dataclass
 
-from agentlog import (
+from aiq import (
     Agent,
     ArtifactRef,
     ChildTerminalOutcome,

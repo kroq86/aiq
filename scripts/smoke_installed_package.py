@@ -1,11 +1,11 @@
-"""Smoke-test an installed Agentlog wheel through public APIs only."""
+"""Smoke-test an installed AIQ wheel through public APIs only."""
 
 from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, replace
 
-from agentlog import (
+from aiq import (
     Agent,
     DurableDispatcher,
     DurableEffectDispatcher,

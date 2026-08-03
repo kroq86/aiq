@@ -5,15 +5,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRACE_ROOT="$ROOT/../setdb"
 FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
 SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
-[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-abstract-simulation.XXXXXX")"
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/aiq-setdb-bin
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/aiq-abstract-simulation.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 mkdir -p "$WORK/trace-source"
 cp -R "$TRACE_ROOT/." "$WORK/trace-source"
 sed -i.bak 's/^MODEL_BOUND equ 10$/MODEL_BOUND equ 12/' "$WORK/trace-source/model_state.inc"
 rm "$WORK/trace-source/model_state.inc.bak"
-(cd "$WORK/trace-source" && "$FASM_BIN" agentlog_model_normal.asm "$WORK/trace" >/dev/null)
+(cd "$WORK/trace-source" && "$FASM_BIN" aiq_model_normal.asm "$WORK/trace" >/dev/null)
 (cd "$ROOT" && "$FASM_BIN" abstract_model_normal.asm "$WORK/abstract" >/dev/null)
 "$WORK/trace" >"$WORK/trace.all"
 sed '/^# ENC /d' "$WORK/trace.all" >"$WORK/trace.facts"

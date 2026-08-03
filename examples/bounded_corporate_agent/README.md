@@ -1,6 +1,6 @@
 # Bounded corporate agent
 
-The one example that answers "what is Agentlog's v0.4 constrained-execution
+The one example that answers "what is AIQ's v0.4 constrained-execution
 API actually for": a bounded provider proposes at most one tool call, and
 everything after that proposal is governed by durable, code-level policy —
 not by asking a bigger model to behave.
@@ -22,7 +22,7 @@ in [EVIDENCE.md](EVIDENCE.md).
 PYTHONPATH=src:. python examples/bounded_corporate_agent/main.py demo.db happy --report
 ```
 
-Real local model (requires `agentlog[ollama]`, a running Ollama daemon, and a
+Real local model (requires `aiq[ollama]`, a running Ollama daemon, and a
 pulled model):
 
 ```bash
@@ -56,7 +56,7 @@ The second invocation with the same provider flags prints
 `resuming an existing run from durable history`
 and the causal event list is unchanged — the already-committed tool call is
 not re-executed, and the run does not restart from the beginning. This is
-ordinary Agentlog event-sourcing (`docs/model-loop.md`), not something
+ordinary AIQ event-sourcing (`docs/model-loop.md`), not something
 specific to this example.
 
 ## `--report`: a JSON run report
@@ -65,10 +65,10 @@ specific to this example.
 PYTHONPATH=src:. python examples/bounded_corporate_agent/main.py demo.db happy --report
 ```
 
-Prints `agentlog.build_run_report`/`run_report_to_json` output: step counts,
+Prints `aiq.build_run_report`/`run_report_to_json` output: step counts,
 tool outcome counts, validation retry counts, goal/invariant/cycle/abstain
 control flags, and request->outcome latency in seconds. This is computed
-fresh from the existing causal trace (`agentlog.TraceService`) — it adds no
+fresh from the existing causal trace (`aiq.TraceService`) — it adds no
 new durable state and works for any `DurableModelLoop` agent, not just this
 example. The example passes its own `loop.events` explicitly; this is required
 when a loop uses a custom namespace, because event names are namespaced facts
@@ -76,7 +76,7 @@ and the report does not guess their semantics from suffixes. `tool_call`
 latency covers the whole guarded effect (input/transition/output validation
 plus the tool call itself, all committed in one batch) — it is not a separate
 per-hook timing breakdown; see the module docstring in
-`src/agentlog/report.py` for why.
+`src/aiq/report.py` for why.
 
 ## Honest scope
 
@@ -97,7 +97,7 @@ per-hook timing breakdown; see the module docstring in
   `validate_output` regardless of what it says, and no scenario feeds fetched
   document content back into a proposal decision.
 - This is a reference implementation, not a production MCP/RAG integration.
-  Agentlog's optional `MCPTool` adapter is deliberately not used here; the
+  AIQ's optional `MCPTool` adapter is deliberately not used here; the
   separate `examples/local_qaqc/` lab exercises that real protocol boundary.
 - The `score >= 0.78` relevance threshold in `validate_output` is an
   illustrative constant, not a calibrated value. A real deployment needs a

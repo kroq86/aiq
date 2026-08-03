@@ -6,7 +6,32 @@ correctness claims.
 
 ## Unreleased
 
-No changes yet.
+## 0.5.0 - 2026-08-03
+
+### Added
+
+- Opt-in same-file SQLite effect leases with atomic claim/attempt recording,
+  full-stream terminal/committed admission, fresh lease IDs, pre-handler
+  ownership confirmation, DB-time heartbeat renewal, monotonic fencing,
+  takeover after expiry, and atomic stale-worker rejection at commit.
+- Append-only durable lease observations for acquired, busy, expiry, renewal,
+  takeover, stale ownership, and stale commit facts.
+- Standalone lease/fencing bounded model covering 20,361 states within
+  transition bound 8, six bounded semantic mutants, 12 killed runtime source
+  mutants with verified source restoration, eight controlled refinement
+  scenarios, and bounded SQLite stress/soak tests.
+
+### Changed
+
+- Only `EffectLeaseOptions` is exported as public lease API; lease handles,
+  protocols, errors, claim outcomes, and observation records remain internal.
+
+### Boundaries
+
+- Lease mode establishes one current DB-valid owner and prevents stale durable
+  commits. It does not guarantee exactly-once physical execution, prevent
+  overlap after expiry, coordinate different databases, or remove the need for
+  downstream idempotency.
 
 ## 0.4.3 - 2026-08-03
 
@@ -59,13 +84,13 @@ No changes yet.
 
 ### Fixed
 
-- Core-only installations can import `agentlog` without the MCP extra; MCP
+- Core-only installations can import `aiq` without the MCP extra; MCP
   tests skip cleanly when the optional dependency is absent.
 - The QA/QC image includes the package license during wheel metadata
   generation.
 
 Source anchor:
-[`6dcb02b` (MCPTool)](https://github.com/kroq86/agentlog/commit/6dcb02b).
+[`6dcb02b` (MCPTool)](https://github.com/kroq86/aiq/commit/6dcb02b).
 CompletionGateModel is part of the working tree prepared for this release.
 
 ## 0.4.1 - 2026-08-03
@@ -86,9 +111,9 @@ CompletionGateModel is part of the working tree prepared for this release.
 - Lint and restart tests were stabilized without changing runtime semantics.
 
 Repository anchors:
-[`73e13f9` (0.4.1 milestone)](https://github.com/kroq86/agentlog/commit/73e13f9)
+[`73e13f9` (0.4.1 milestone)](https://github.com/kroq86/aiq/commit/73e13f9)
 and
-[`a32ab20` (AIQ coverage follow-up)](https://github.com/kroq86/agentlog/commit/a32ab20).
+[`a32ab20` (AIQ coverage follow-up)](https://github.com/kroq86/aiq/commit/a32ab20).
 No `v0.4.1` tag was created and package metadata remained `0.4.0`.
 
 ## 0.4.0 - 2026-08-03
@@ -107,7 +132,7 @@ No `v0.4.1` tag was created and package metadata remained `0.4.0`.
 - No exactly-once physical execution, general planner, production RAG system,
   or complete proof for the expanded control-event vocabulary was claimed.
 
-Release tag: [`v0.4.0`](https://github.com/kroq86/agentlog/tree/v0.4.0).
+Release tag: [`v0.4.0`](https://github.com/kroq86/aiq/tree/v0.4.0).
 
 ## 0.3.0 - 2026-08-01
 
@@ -126,4 +151,4 @@ Release tag: [`v0.4.0`](https://github.com/kroq86/agentlog/tree/v0.4.0).
   definitions and external systems were not universally proved.
 
 Release commit:
-[`17114e2`](https://github.com/kroq86/agentlog/commit/17114e2).
+[`17114e2`](https://github.com/kroq86/aiq/commit/17114e2).

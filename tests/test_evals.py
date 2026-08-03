@@ -5,8 +5,8 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from agentlog.evals import EvalCase, EvalDataset, EvalRunner, evaluate_trace
-from agentlog.trace import CausalTrace, TraceEvent
+from aiq.evals import EvalCase, EvalDataset, EvalRunner, evaluate_trace
+from aiq.trace import CausalTrace, TraceEvent
 
 
 def trace_event(

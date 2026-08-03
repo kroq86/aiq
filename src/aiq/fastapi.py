@@ -1,35 +1,35 @@
-"""Embeddable FastAPI integration for Agentlog.
+"""Embeddable FastAPI integration for AIQ.
 
 This is the canonical implementation of the HTTP/SSE boundary: routes,
 broadcaster, catch-up lifecycle, and ownership wiring all live here exactly
-once. `agentlog.http.create_app()` is a thin convenience wrapper around
-`Agentlog` defined in this module, not a second implementation.
+once. `aiq.http.create_app()` is a thin convenience wrapper around
+`AIQ` defined in this module, not a second implementation.
 
-FastAPI is an optional dependency: importing plain `agentlog` never imports
+FastAPI is an optional dependency: importing plain `aiq` never imports
 this module, and importing this module without FastAPI installed raises a
 clear `ImportError` instead of a bare `ModuleNotFoundError`.
 
 Two supported styles:
 
     # Standalone convenience
-    from agentlog.http import create_app
+    from aiq.http import create_app
     app = create_app(store=store, runtimes={"energy-assistant": runtime})
 
     # Embedding into an existing application
     from fastapi import FastAPI
-    from agentlog.fastapi import Agentlog
+    from aiq.fastapi import AIQ
 
-    agentlog = Agentlog(store=store, runtimes={"energy-assistant": runtime})
-    app = FastAPI(lifespan=agentlog.lifespan)
-    app.include_router(agentlog.router, prefix="/api")
+    aiq = AIQ(store=store, runtimes={"energy-assistant": runtime})
+    app = FastAPI(lifespan=aiq.lifespan)
+    app.include_router(aiq.router, prefix="/api")
 
 If the host application already has its own lifespan, compose the two with
 `compose_lifespans` rather than nesting `async with` by hand:
 
-    from agentlog.fastapi import Agentlog, compose_lifespans
+    from aiq.fastapi import AIQ, compose_lifespans
 
-    agentlog = Agentlog(store=store, runtimes=runtimes)
-    app = FastAPI(lifespan=compose_lifespans(existing_lifespan, agentlog.lifespan))
+    aiq = AIQ(store=store, runtimes=runtimes)
+    app = FastAPI(lifespan=compose_lifespans(existing_lifespan, aiq.lifespan))
 """
 
 from __future__ import annotations
@@ -51,12 +51,13 @@ try:
     from pydantic import BaseModel, Field
 except ModuleNotFoundError as error:  # pragma: no cover - exercised via core-only smoke
     raise ImportError(
-        "agentlog.fastapi requires the optional 'fastapi' extra. "
-        "Install it with: pip install 'agentlog[fastapi]'"
+        "aiq.fastapi requires the optional 'fastapi' extra. "
+        "Install it with: pip install 'aiq[fastapi]'"
     ) from error
 
 from .application import AgentRuntime, default_serialize_state
 from .attempts import EffectAttemptStore
+from .leases import EffectLeaseOptions
 from .core import Event, EventEnvelope, EventStore, JsonValue, VersionConflictError
 from .runtime import (
     AgentDefinition,
@@ -70,17 +71,17 @@ from .trace import RunNotFoundError, TraceService, trace_to_json
 if TYPE_CHECKING:
     from .framework import Agent
 
-logger = logging.getLogger("agentlog.fastapi")
+logger = logging.getLogger("aiq.fastapi")
 
 POLL_INTERVAL_SECONDS = 5.0
 SHUTDOWN_TIMEOUT_SECONDS = 10.0
 
-AgentlogStatus = Literal["stopped", "starting", "running", "unhealthy", "stopping"]
+AIQStatus = Literal["stopped", "starting", "running", "unhealthy", "stopping"]
 
 __all__ = [
-    "Agentlog",
-    "AgentlogApplication",
-    "AgentlogHealth",
+    "AIQ",
+    "AIQApplication",
+    "AIQHealth",
     "AgentRuntime",
     "CreateRunResponse",
     "compose_lifespans",
@@ -90,11 +91,11 @@ __all__ = [
 
 
 @dataclass(frozen=True, slots=True)
-class AgentlogHealth:
-    """A point-in-time snapshot -- not a live view. Re-read `agentlog.health`
+class AIQHealth:
+    """A point-in-time snapshot -- not a live view. Re-read `aiq.health`
     to get the current state; holding onto one of these does not update."""
 
-    status: AgentlogStatus
+    status: AIQStatus
     worker_error: str | None
 
     @property
@@ -243,7 +244,7 @@ def _normalize_command_events(
     return tuple(normalized)
 
 
-class Agentlog:
+class AIQ:
     """Embeddable FastAPI integration: one instance owns one router, one
     background catch-up task, and one SSE broadcaster over one event store.
 
@@ -264,6 +265,7 @@ class Agentlog:
         poll_interval_seconds: float = POLL_INTERVAL_SECONDS,
         shutdown_timeout_seconds: float = SHUTDOWN_TIMEOUT_SECONDS,
         attempt_store: EffectAttemptStore | None = None,
+        lease_options: EffectLeaseOptions | None = None,
     ) -> None:
         for name, runtime in runtimes.items():
             if runtime.agent.name != name:
@@ -277,12 +279,16 @@ class Agentlog:
             raise ValueError("poll_interval_seconds must be > 0")
         if shutdown_timeout_seconds <= 0:
             raise ValueError("shutdown_timeout_seconds must be > 0")
+        if attempt_store is not None and lease_options is not None:
+            raise ValueError(
+                "attempt_store cannot be configured with effect leases"
+            )
 
         self._store = store
         self._runtimes = dict(runtimes)
         self._poll_interval_seconds = poll_interval_seconds
         self._shutdown_timeout_seconds = shutdown_timeout_seconds
-        self._status: AgentlogStatus = "stopped"
+        self._status: AIQStatus = "stopped"
         self._worker_error: BaseException | None = None
         self._broadcaster = _Broadcaster()
         self._trace_service = TraceService(
@@ -311,6 +317,7 @@ class Agentlog:
                 ),
                 owns_stream=partial(agent_owns_stream, name),
                 attempt_store=attempt_store,
+                lease_options=lease_options,
             )
             for name, runtime in self._runtimes.items()
         ]
@@ -326,10 +333,10 @@ class Agentlog:
         return self._router
 
     @property
-    def health(self) -> AgentlogHealth:
+    def health(self) -> AIQHealth:
         """A fresh snapshot of current lifecycle state -- never the raw
         background `asyncio.Task`, which is not part of the public API."""
-        return AgentlogHealth(
+        return AIQHealth(
             status=self._status,
             worker_error=self._worker_error_summary(),
         )
@@ -369,7 +376,7 @@ class Agentlog:
         `@agent.command(...)` handler (via `POST .../commands/{command_name}`)
         is the only way an HTTP caller adds a domain event. This is the one
         implementation the `POST /{agent_name}/runs` route below and any
-        compatibility wrapper (e.g. `agentlog.http`'s legacy chat endpoint)
+        compatibility wrapper (e.g. `aiq.http`'s legacy chat endpoint)
         both call -- neither reimplements it.
         """
         runtime = self._runtime_for(agent_name)
@@ -410,7 +417,7 @@ class Agentlog:
         """Legacy one-shot creation: `RunCreated` plus a single event it
         causes, appended atomically. Exists only for backward compatibility
         with callers built against the old chat-specific create-run
-        contract (see `agentlog.http`'s `/runs/chat` endpoint) -- the
+        contract (see `aiq.http`'s `/runs/chat` endpoint) -- the
         canonical `create_run` above no longer does this itself, and this
         method is not exposed as a route on `self.router`.
         """
@@ -444,7 +451,7 @@ class Agentlog:
         router = self._router
         store = self._store
 
-        @router.get("/_health", name="agentlog:health")
+        @router.get("/_health", name="aiq:health")
         async def health_check() -> JSONResponse:
             """Framework-owned liveness/readiness endpoint. 200 for every
             status except `unhealthy`, which is 503 -- a dead background
@@ -464,7 +471,7 @@ class Agentlog:
         @router.post(
             "/{agent_name}/runs",
             response_model=CreateRunResponse,
-            name="agentlog:create_run",
+            name="aiq:create_run",
         )
         async def create_run(
             agent_name: str, body: CreateRunRequest | None = None
@@ -478,7 +485,7 @@ class Agentlog:
         @router.post(
             "/{agent_name}/runs/{run_id}/commands/{command_name}",
             response_model=CommandResponse,
-            name="agentlog:command",
+            name="aiq:command",
         )
         async def submit_command(
             agent_name: str,
@@ -583,7 +590,7 @@ class Agentlog:
 
         @router.get(
             "/{agent_name}/runs/{run_id}",
-            name="agentlog:read_run",
+            name="aiq:read_run",
         )
         async def read_run(agent_name: str, run_id: str) -> dict[str, Any]:
             runtime = self._runtime_for(agent_name)
@@ -598,7 +605,7 @@ class Agentlog:
 
         @router.get(
             "/{agent_name}/runs/{run_id}/trace",
-            name="agentlog:get_trace",
+            name="aiq:get_trace",
         )
         async def get_trace(agent_name: str, run_id: str) -> dict[str, Any]:
             try:
@@ -609,7 +616,7 @@ class Agentlog:
 
         @router.get(
             "/{agent_name}/runs/{run_id}/stream",
-            name="agentlog:stream_run",
+            name="aiq:stream_run",
         )
         async def stream_run(
             agent_name: str,
@@ -711,7 +718,7 @@ class Agentlog:
                     pass
 
     async def _run_worker(self, stop: asyncio.Event) -> None:
-        logger.info("agentlog: worker started")
+        logger.info("aiq: worker started")
         try:
             await self._catch_up_forever(stop)
         except asyncio.CancelledError:
@@ -722,11 +729,11 @@ class Agentlog:
             # thing as the dispatcher loop breaking on its own.
             raise
         except Exception as error:  # noqa: BLE001 - the whole point: capture *any* dispatcher/effect failure
-            logger.exception("agentlog: worker failed")
+            logger.exception("aiq: worker failed")
             self._worker_error = error
             self._status = "unhealthy"
             return
-        logger.info("agentlog: worker stopped")
+        logger.info("aiq: worker stopped")
 
     async def start(self) -> None:
         """Start the background catch-up task.
@@ -739,11 +746,11 @@ class Agentlog:
         """
         if self._status == "unhealthy":
             raise RuntimeError(
-                "Agentlog worker previously failed and is unhealthy; "
+                "AIQ worker previously failed and is unhealthy; "
                 "call stop() before starting again"
             )
         if self._task is not None:
-            raise RuntimeError("Agentlog is already started")
+            raise RuntimeError("AIQ is already started")
         self._status = "starting"
         self._worker_error = None  # fresh start: clear the prior diagnostic
         self._stop_event = asyncio.Event()
@@ -757,7 +764,7 @@ class Agentlog:
         once. Bounded: waits up to `shutdown_timeout_seconds` for the
         worker to notice the cooperative stop signal and exit on its own;
         if it doesn't, the worker is cancelled and awaited so that no
-        Agentlog task is ever left running after `stop()` returns.
+        AIQ task is ever left running after `stop()` returns.
 
         A worker failure recorded before or during `stop()` is preserved in
         `worker_error` for diagnostics -- `stop()` itself always completes
@@ -776,7 +783,7 @@ class Agentlog:
         assert stop_event is not None
 
         self._status = "stopping"
-        logger.info("agentlog: graceful shutdown requested")
+        logger.info("aiq: graceful shutdown requested")
         stop_event.set()
 
         forced_cancellation = False
@@ -791,7 +798,7 @@ class Agentlog:
         except TimeoutError:
             forced_cancellation = True
             logger.warning(
-                "agentlog: graceful shutdown timed out after %.1fs; cancelling worker",
+                "aiq: graceful shutdown timed out after %.1fs; cancelling worker",
                 self._shutdown_timeout_seconds,
             )
             task.cancel()
@@ -808,16 +815,16 @@ class Agentlog:
                 await task
 
         if forced_cancellation:
-            logger.info("agentlog: worker cancelled")
+            logger.info("aiq: worker cancelled")
 
         self._status = "stopped"
         self._task = None
         self._stop_event = None
-        logger.info("agentlog: worker stopped")
+        logger.info("aiq: worker stopped")
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI) -> AsyncIterator[None]:
-        """Use as `FastAPI(lifespan=agentlog.lifespan)`, or combine with an
+        """Use as `FastAPI(lifespan=aiq.lifespan)`, or combine with an
         existing host lifespan via `compose_lifespans()`."""
         await self.start()
         try:
@@ -826,7 +833,7 @@ class Agentlog:
             await self.stop()
 
 
-class AgentlogApplication:
+class AIQApplication:
     def __init__(
         self,
         *,
@@ -842,7 +849,7 @@ class AgentlogApplication:
         self._poll_interval_seconds = poll_interval_seconds
         self._shutdown_timeout_seconds = shutdown_timeout_seconds
         self._runtimes: dict[str, AgentRuntime] = {}
-        self._agentlog: Agentlog | None = None
+        self._aiq: AIQ | None = None
 
     def register(
         self,
@@ -851,9 +858,9 @@ class AgentlogApplication:
         context: object = None,
         resources: object = None,
     ) -> None:
-        if self._agentlog is not None:
+        if self._aiq is not None:
             raise RuntimeError(
-                "AgentlogApplication registration is closed after build or startup"
+                "AIQApplication registration is closed after build or startup"
             )
         if agent.name in self._runtimes:
             raise ValueError(f"agent {agent.name!r} is already registered")
@@ -862,15 +869,15 @@ class AgentlogApplication:
         resolved_resources = resources if resources is not None else context
         self._runtimes[agent.name] = agent.build_runtime(context=resolved_resources)
 
-    def build(self) -> Agentlog:
-        if self._agentlog is None:
-            self._agentlog = Agentlog(
+    def build(self) -> AIQ:
+        if self._aiq is None:
+            self._aiq = AIQ(
                 store=self._store,
                 runtimes=self._runtimes,
                 poll_interval_seconds=self._poll_interval_seconds,
                 shutdown_timeout_seconds=self._shutdown_timeout_seconds,
             )
-        return self._agentlog
+        return self._aiq
 
     @property
     def router(self) -> APIRouter:
@@ -880,8 +887,8 @@ class AgentlogApplication:
         await self.build().start()
 
     async def stop(self) -> None:
-        if self._agentlog is not None:
-            await self._agentlog.stop()
+        if self._aiq is not None:
+            await self._aiq.stop()
 
     @asynccontextmanager
     async def lifespan(self, app: FastAPI) -> AsyncIterator[None]:
@@ -895,14 +902,14 @@ def compose_lifespans(
     """Combine multiple FastAPI lifespan callables into one.
 
     Entered in the given order, exited in reverse -- so a host app's
-    existing lifespan and `Agentlog.lifespan` can share the single
+    existing lifespan and `AIQ.lifespan` can share the single
     `FastAPI(lifespan=...)` slot:
 
-        app = FastAPI(lifespan=compose_lifespans(existing_lifespan, agentlog.lifespan))
+        app = FastAPI(lifespan=compose_lifespans(existing_lifespan, aiq.lifespan))
 
     Built on `AsyncExitStack`, so if one lifespan's shutdown raises, the
     others still run their shutdown -- host cleanup isn't skipped just
-    because Agentlog's shutdown (or vice versa) failed, and vice versa.
+    because AIQ's shutdown (or vice versa) failed, and vice versa.
     """
 
     @asynccontextmanager

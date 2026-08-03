@@ -1,4 +1,4 @@
-"""Reference chat agent, declared through `agentlog.framework.Agent`
+"""Reference chat agent, declared through `aiq.framework.Agent`
 instead of hand-assembled `AgentDefinition`/`EffectRegistry`/`EffectContext`.
 
     PYTHONPATH=src python3 examples/framework_chat_agent.py
@@ -15,8 +15,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, replace
 
-from agentlog import DurableDispatcher, DurableEffectDispatcher, InMemoryEventStore, run_stream_id
-from agentlog.framework import Agent
+from aiq import DurableDispatcher, DurableEffectDispatcher, InMemoryEventStore, run_stream_id
+from aiq.framework import Agent
 
 
 @dataclass(frozen=True)

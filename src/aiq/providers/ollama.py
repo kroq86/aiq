@@ -10,7 +10,7 @@ try:
     import httpx
 except ImportError as error:  # pragma: no cover - depends on optional installation
     raise ImportError(
-        "OllamaProvider requires the 'ollama' extra: pip install agentlog[ollama]"
+        "OllamaProvider requires the 'ollama' extra: pip install aiq[ollama]"
     ) from error
 
 from ..models import (
@@ -66,7 +66,7 @@ class OllamaProvider:
     ) -> ModelResponse:
         if request.artifacts:
             raise ModelCallRejectedError(
-                "OllamaProvider does not resolve Agentlog artifact references"
+                "OllamaProvider does not resolve AIQ artifact references"
             )
         payload: dict[str, Any] = {
             "model": request.model or self._model,

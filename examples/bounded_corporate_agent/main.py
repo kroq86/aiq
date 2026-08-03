@@ -1,11 +1,11 @@
-"""One runnable example of Agentlog's v0.4 constrained
+"""One runnable example of AIQ's v0.4 constrained
 execution contract:
 
     bounded provider -> validated tool proposal -> guarded transition
     -> durable execution -> normalized result -> goal-gated completion
 
 The deterministic default has no network or API key. Pass --ollama to use a
-real local model through Agentlog's OllamaProvider. Run any command twice
+real local model through AIQ's OllamaProvider. Run any command twice
 against the same database, scenario, and provider mode: the second invocation
 resumes durable SQLite history instead of re-asking the provider or re-calling
 an already-committed tool.
@@ -18,7 +18,7 @@ an already-committed tool.
     python examples/bounded_corporate_agent/main.py demo.db happy \
         --ollama --model qwen2.5:3b --report
 
-Only imports from agentlog's public surface (`agentlog.__all__`); see
+Only imports from aiq's public surface (`aiq.__all__`); see
 README.md in this directory for what each scenario demonstrates and why.
 """
 
@@ -31,7 +31,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from agentlog import (
+from aiq import (
     Agent,
     DurableDispatcher,
     DurableEffectDispatcher,
@@ -291,7 +291,7 @@ async def run_scenario(
     close_provider = None
     if ollama:
         # Keep the deterministic default free of optional dependencies.
-        from agentlog import OllamaProvider
+        from aiq import OllamaProvider
 
         provider = OllamaProvider(model=model, think=False)
         close_provider = provider.aclose

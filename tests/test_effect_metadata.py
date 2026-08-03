@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     DurableEffectDispatcher,
     EffectContext,

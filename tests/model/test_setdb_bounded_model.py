@@ -14,7 +14,7 @@ class SetdbBoundedModelTests(unittest.TestCase):
         cls.binary = os.environ.get("SETDB_BIN") or shutil.which("setdb")
         if not cls.binary:
             raise unittest.SkipTest("setdb executable is not available")
-        cls.checker = Path(__file__).parents[2] / "formal/setdb/check_agentlog_model.py"
+        cls.checker = Path(__file__).parents[2] / "formal/setdb/check_aiq_model.py"
 
     def run_checker(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(

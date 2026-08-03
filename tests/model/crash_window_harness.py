@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
-from agentlog import (
+from aiq import (
     DurableDispatcher,
     DurableEffectDispatcher,
     Event,
@@ -16,9 +16,9 @@ from agentlog import (
     agent_owns_stream,
     run_stream_id,
 )
-from agentlog.evals import CrashWindowEvidence, InvocationObservation
-from agentlog.trace import build_causal_trace
-from agentlog.tools import function_tool
+from aiq.evals import CrashWindowEvidence, InvocationObservation
+from aiq.trace import build_causal_trace
+from aiq.tools import function_tool
 
 from tests.test_model_loop_policy import define, get_weather, run
 

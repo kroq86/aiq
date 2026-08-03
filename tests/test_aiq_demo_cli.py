@@ -1,4 +1,4 @@
-"""Tests for the `python -m agentlog.demo` subprocess boundary.
+"""Tests for the `python -m aiq.demo` subprocess boundary.
 
 Deliberately exercises the real subprocess interface (not just the
 directly-imported functions) for the CLI-shaped requirements, since that's
@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agentlog.demo import generate_completed_trace, write_trace_json
+from aiq.demo import generate_completed_trace, write_trace_json
 
 _SRC_DIR = Path(__file__).resolve().parents[1] / "src"
 _EXAMPLE_SCRIPT = (
@@ -26,7 +26,7 @@ def _run_demo(*args: str, timeout: float = 30) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(_SRC_DIR)
     return subprocess.run(
-        [sys.executable, "-m", "agentlog.demo", *args],
+        [sys.executable, "-m", "aiq.demo", *args],
         env=env,
         capture_output=True,
         text=True,
@@ -234,10 +234,10 @@ class SharedLogicTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
 
             completed = json.loads(
-                (Path(temp_dir) / "agentlog-completed-domain-event-history-v1.json").read_text()
+                (Path(temp_dir) / "aiq-completed-domain-event-history-v1.json").read_text()
             )
             active = json.loads(
-                (Path(temp_dir) / "agentlog-active-domain-event-history-v1.json").read_text()
+                (Path(temp_dir) / "aiq-active-domain-event-history-v1.json").read_text()
             )
             self.assertEqual(
                 [node["event_type"] for node in completed["nodes"]],

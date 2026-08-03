@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
 
-from agentlog import DuplicateEventError, Event, SQLiteEventStore, VersionConflictError
+from aiq import DuplicateEventError, Event, SQLiteEventStore, VersionConflictError
 
 
 ROOT = Path(__file__).resolve().parent
@@ -96,7 +96,7 @@ class Scenario:
         self.name = name
         self.states = states
         self.transitions = transitions
-        self.directory = tempfile.TemporaryDirectory(prefix=f"agentlog-store-{name}-")
+        self.directory = tempfile.TemporaryDirectory(prefix=f"aiq-store-{name}-")
         self.path = Path(self.directory.name) / "events.db"
         self.store = asyncio.run(SQLiteEventStore.open(self.path))
         self.previous = self.observe("create empty stream")
@@ -204,7 +204,7 @@ def run_scenarios(states: set[str], transitions: set[tuple[str, str]]) -> tuple[
 
 
 def main() -> int:
-    with tempfile.TemporaryDirectory(prefix="agentlog-store-refinement-") as directory:
+    with tempfile.TemporaryDirectory(prefix="aiq-store-refinement-") as directory:
         states, transitions = build_graph(Path(directory))
         scenarios, snapshots = run_scenarios(states, transitions)
     print(

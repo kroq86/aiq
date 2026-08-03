@@ -24,8 +24,8 @@ import httpx
 import uvicorn
 from fastapi import FastAPI
 
-from agentlog import Agent, CommandRejected, EffectFailed, SQLiteEventStore
-from agentlog.fastapi import AgentlogApplication
+from aiq import Agent, CommandRejected, EffectFailed, SQLiteEventStore
+from aiq.fastapi import AIQApplication
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 
@@ -144,7 +144,7 @@ def define_agent() -> Agent:
 
 async def build_app(database: Path, *, model: str, request_timeout: float) -> FastAPI:
     store = await SQLiteEventStore.open(database)
-    application = AgentlogApplication(store=store, poll_interval_seconds=0.2)
+    application = AIQApplication(store=store, poll_interval_seconds=0.2)
     client = httpx.AsyncClient(timeout=request_timeout)
     application.register(define_agent(), context=OllamaContext(model=model, client=client))
 

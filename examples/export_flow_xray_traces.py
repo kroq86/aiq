@@ -1,20 +1,20 @@
 """Thin wrapper: generate both canonical domain-event-history v1 trace
-artifacts in one call, using the shared logic in `agentlog.demo`.
+artifacts in one call, using the shared logic in `aiq.demo`.
 
     PYTHONPATH=src python3 examples/export_flow_xray_traces.py --output-dir /tmp
 
 Writes:
 
-    agentlog-completed-domain-event-history-v1.json  (terminal_status="completed")
-    agentlog-active-domain-event-history-v1.json      (terminal_status="active")
+    aiq-completed-domain-event-history-v1.json  (terminal_status="completed")
+    aiq-active-domain-event-history-v1.json      (terminal_status="active")
 
 For the single-file, subprocess-stable form Flow Xray actually calls, use
 the package module directly instead of this script:
 
-    python -m agentlog.demo --status completed --output trace.json
-    python -m agentlog.demo --status active    --output trace.json
+    python -m aiq.demo --status completed --output trace.json
+    python -m aiq.demo --status active    --output trace.json
 
-All agent/effect/trace-generation logic lives in `agentlog.demo` (public
+All agent/effect/trace-generation logic lives in `aiq.demo` (public
 API: `generate_completed_trace`, `generate_active_trace`,
 `write_trace_json`) so this script and the installed CLI can never drift
 apart -- this file only wires them to a two-file, one-directory output
@@ -27,7 +27,7 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from agentlog.demo import (
+from aiq.demo import (
     generate_active_trace,
     generate_completed_trace,
     write_trace_json,
@@ -51,8 +51,8 @@ async def _main() -> None:
     completed = await generate_completed_trace()
     active = await generate_active_trace()
 
-    completed_path = args.output_dir / "agentlog-completed-domain-event-history-v1.json"
-    active_path = args.output_dir / "agentlog-active-domain-event-history-v1.json"
+    completed_path = args.output_dir / "aiq-completed-domain-event-history-v1.json"
+    active_path = args.output_dir / "aiq-active-domain-event-history-v1.json"
     write_trace_json(completed, completed_path)
     write_trace_json(active, active_path)
 

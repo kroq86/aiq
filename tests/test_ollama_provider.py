@@ -6,8 +6,8 @@ import unittest
 
 import httpx
 
-from agentlog import ModelMessage, ModelRequest, ToolDefinition
-from agentlog.providers import OllamaProvider
+from aiq import ModelMessage, ModelRequest, ToolDefinition
+from aiq.providers import OllamaProvider
 
 
 class OllamaProviderTests(unittest.TestCase):

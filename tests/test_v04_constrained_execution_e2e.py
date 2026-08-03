@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from agentlog import (
+from aiq import (
     DurableDispatcher,
     DurableEffectDispatcher,
     Event,

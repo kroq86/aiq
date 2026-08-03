@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from agentlog.trace import CausalTrace
+from aiq.trace import CausalTrace
 
 from .case import EvalCase
 from .report import TraceSummary

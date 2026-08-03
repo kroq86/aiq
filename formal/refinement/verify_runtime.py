@@ -10,8 +10,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from agentlog import InMemoryEventStore, ToolRegistry
-from agentlog.fastapi import AgentlogApplication
+from aiq import InMemoryEventStore, ToolRegistry
+from aiq.fastapi import AIQApplication
 from tests.model.normalization import normalize_history
 from tests.model.runtime_harness import RuntimeHarness
 from tests.model.test_fastapi_semantic_equivalence import collect_sse
@@ -42,7 +42,7 @@ def build_graph(work: Path) -> tuple[dict[str, str], set[str], set[tuple[str, st
         raise RuntimeError("FASM_BIN and SETDB_BIN/setdb are required")
     binary = work / "model"
     subprocess.run(
-        [fasm, "agentlog_model_normal.asm", str(binary)],
+        [fasm, "aiq_model_normal.asm", str(binary)],
         cwd=FORMAL,
         check=True,
         capture_output=True,
@@ -116,7 +116,7 @@ def verify_fastapi(encodings: dict[str, str], reachable: set[str]) -> int:
     store = InMemoryEventStore()
     tools = ToolRegistry.from_functions(get_weather)
     agent, loop = define(tools)
-    application = AgentlogApplication(store=store, poll_interval_seconds=0.01)
+    application = AIQApplication(store=store, poll_interval_seconds=0.01)
     application.register(agent, resources={"model": Provider(), "tools": tools})
     app = FastAPI(lifespan=application.lifespan)
     app.include_router(application.router)
@@ -165,7 +165,7 @@ def main() -> int:
             action for _ in range(8) for action in ("reaction", "effect")
         ),
     }
-    with tempfile.TemporaryDirectory(prefix="agentlog-refinement-") as directory:
+    with tempfile.TemporaryDirectory(prefix="aiq-refinement-") as directory:
         encodings, reachable, transitions = build_graph(Path(directory))
         snapshots = sum(
             verify_scenario(name, actions, encodings, reachable, transitions)

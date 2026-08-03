@@ -308,7 +308,7 @@ def run_report_to_json(report: RunReport) -> dict[str, Any]:
     metrics = report.effect_attempt_metrics
     return {
         "schema_version": 1,
-        "report_kind": "agentlog-run-report",
+        "report_kind": "aiq-run-report",
         "agent_name": report.agent_name,
         "run_id": report.run_id,
         "terminal_status": report.terminal_status,

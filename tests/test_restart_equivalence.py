@@ -4,13 +4,13 @@ import asyncio
 import unittest
 from datetime import datetime, timezone
 
-from agentlog.evals import (
+from aiq.evals import (
     EvalCase,
     RestartEquivalenceRunner,
     RestartPoint,
     UnsupportedRestartPoint,
 )
-from agentlog.trace import CausalTrace, TraceEvent
+from aiq.trace import CausalTrace, TraceEvent
 
 
 def event(event_id, event_type, *, cause=None, operation=None, data=None):

@@ -4,7 +4,7 @@ from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Protocol
 
-from agentlog.trace import CausalTrace
+from aiq.trace import CausalTrace
 
 from .assertions import AssertionFailure, evaluate_trace
 from .case import EvalCase, EvalDataset

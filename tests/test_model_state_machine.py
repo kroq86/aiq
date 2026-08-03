@@ -38,7 +38,7 @@ from hypothesis import HealthCheck, settings
 from hypothesis import strategies as st
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, invariant, rule
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     DefinitionMismatchError,
     DurableDispatcher,
@@ -51,13 +51,13 @@ from agentlog import (
     agent_owns_stream,
     effect_request,
 )
-from agentlog.runtime import _commit_outputs_with_retry, _normalize_effect_outputs
+from aiq.runtime import _commit_outputs_with_retry, _normalize_effect_outputs
 
 # Expected, informational noise from the definition-mismatch skip path
 # (see runtime.py's DurableDispatcher/DurableEffectDispatcher.run_once) --
 # this state machine deliberately triggers it constantly by interleaving
 # two versions, so it would otherwise drown out real test output.
-logging.getLogger("agentlog.runtime").setLevel(logging.ERROR)
+logging.getLogger("aiq.runtime").setLevel(logging.ERROR)
 
 
 def run(coro):
@@ -162,7 +162,7 @@ def reference_apply(reference_run: ReferenceRun, event: Event) -> ReferenceRun:
     )
 
 
-class AgentlogModelMachine(RuleBasedStateMachine):
+class AIQModelMachine(RuleBasedStateMachine):
     runs: Bundle = Bundle("runs")
 
     def __init__(self) -> None:
@@ -594,7 +594,7 @@ class AgentlogModelMachine(RuleBasedStateMachine):
                 causation_id = envelope.event.metadata.get("causation_id")
                 if envelope.event.event_type in ("RunCreated", "UserMessageAdded"):
                     # RunCreated is the system root; UserMessageAdded is
-                    # command-produced -- matches agentlog.framework's own
+                    # command-produced -- matches aiq.framework's own
                     # convention of causation_source=None for command
                     # output (Agent.handle_command). Everything downstream
                     # of those two roots is caused by something.
@@ -608,8 +608,8 @@ class AgentlogModelMachine(RuleBasedStateMachine):
                 assert positions[causation_id] < index
 
 
-TestAgentlogModel = AgentlogModelMachine.TestCase
-TestAgentlogModel.settings = settings(
+TestAIQModel = AIQModelMachine.TestCase
+TestAIQModel.settings = settings(
     max_examples=100,
     stateful_step_count=60,
     suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large],

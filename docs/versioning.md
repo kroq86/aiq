@@ -1,9 +1,9 @@
 # Versioned deployment
 
 Этот документ — operational contract для того, кто **эксплуатирует**
-agentlog-приложение, а не для того, кто его пишет. Он описывает, что
+aiq-приложение, а не для того, кто его пишет. Он описывает, что
 происходит с in-flight run-ами при деплое новой версии definition, и что
-нужно сделать руками, потому что agentlog это не автоматизирует.
+нужно сделать руками, потому что aiq это не автоматизирует.
 
 Всё, что здесь написано, доказано исполняемыми тестами
 (`tests/test_e2e_scenarios.py::DefinitionVersionIsolationTests`,
@@ -22,7 +22,7 @@ Agent(name="support", version="1", ...)
 version=None  =>  no definition isolation guarantee
 ```
 
-Это явный контракт, а не забытая фича. Без версии agentlog не может
+Это явный контракт, а не забытая фича. Без версии aiq не может
 отличить "старую" логику от "новой" — run будет молча интерпретироваться
 под тем definition-объектом, который сейчас запущен, каким бы он ни был.
 Если вы вообще планируете менять логику агента после того, как в системе
@@ -46,7 +46,7 @@ Runtime_v2  interprets only  Runs_v2
   (`{agent_name}:{version}:reactions` / `{agent_name}:{version}:effects`)
   — прогресс `v2` никогда не продвигает checkpoint `v1`, и наоборот;
 - при встрече с run чужой версии dispatcher пишет в лог
-  `"agentlog: skipping stream ... (blocked; not reprocessed automatically
+  `"aiq: skipping stream ... (blocked; not reprocessed automatically
   -- see DefinitionMismatchError)"` и продвигает **только свой**
   checkpoint — остальные run той же версии продолжают обрабатываться
   нормально (`Mismatch(r1)` не влечёт `Failure(r2)`).
@@ -86,7 +86,7 @@ permanently blocked (см. ниже — это тоже не "active", прос�
 Если `DurableDispatcher`/`DurableEffectDispatcher` встречают
 `TerminalEventConflictError` (два terminal-события в одном batch — баг
 самой definition, а не старая версия) — это **не** тот же случай, что
-version mismatch. Это валит воркер (`agentlog: worker failed` в логах,
+version mismatch. Это валит воркер (`aiq: worker failed` в логах,
 `/agents/_health` → `503`), и **рестарт не лечит** — конфликтующее событие
 остаётся в store незакоммиченным навсегда, и новый воркер наткнётся на
 тот же conflict немедленно. Нужен либо фикс кода (reducer/reaction

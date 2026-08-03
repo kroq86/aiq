@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
 SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
-[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/aiq-setdb-bin
 mutants=(before_stays at_allows tool_updates_model model_updates_tool tool_reset)
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-abstract-mutants.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/aiq-abstract-mutants.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 for mutant in "${mutants[@]}"; do

@@ -1,4 +1,4 @@
-; Packed state ABI for the Agentlog 0.2 bounded explorer.
+; Packed state ABI for the AIQ 0.2 bounded explorer.
 ; Positions are 1-based; zero means no event/checkpoint/causation/operation.
 
 if ~ defined MODEL_BOUND

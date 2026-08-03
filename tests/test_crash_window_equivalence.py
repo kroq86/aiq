@@ -5,7 +5,7 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from agentlog.evals import InvocationObservation, evaluate_crash_window
+from aiq.evals import InvocationObservation, evaluate_crash_window
 
 from tests.model.crash_window_harness import CrashWindowHarness
 

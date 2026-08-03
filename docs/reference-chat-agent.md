@@ -37,7 +37,7 @@ RunCompleted
 ### HTTP flow (10 events)
 
 `examples/http_chat_agent/main.py` через `POST /agents/{agent_name}/runs`
-(`agentlog.http.create_app`) атомарно пишет `RunCreated` + `UserMessageAdded`
+(`aiq.http.create_app`) атомарно пишет `RunCreated` + `UserMessageAdded`
 как часть command handling (`http.py::create_run`):
 
 ```text
@@ -103,7 +103,7 @@ PYTHONPATH=src python3 examples/chat_mcp_agent/main.py
 
 ```bash
 PYTHONPATH=src \
-python3 examples/chat_mcp_agent/main.py /tmp/agentlog-chat-demo.db
+python3 examples/chat_mcp_agent/main.py /tmp/aiq-chat-demo.db
 ```
 
 ## Что доказывает acceptance test
@@ -168,7 +168,7 @@ ModelOutputRejected
 
 ## HTTP-граница
 
-`agentlog.http.create_app()` открывает этот сценарий наружу:
+`aiq.http.create_app()` открывает этот сценарий наружу:
 
 ```text
 POST /agents/{agent_name}/runs
@@ -183,9 +183,9 @@ SSE читает immutable log через `store.load(after_version=...)` пос
 пробуждения; in-memory notification — только сигнал "возможно, есть новое",
 не источник истины. Исполняемый пример: `examples/http_chat_agent/main.py`.
 
-`create_app()` — standalone convenience поверх `agentlog.fastapi.Agentlog`,
+`create_app()` — standalone convenience поверх `aiq.fastapi.AIQ`,
 не единственная модель. Для встраивания в уже существующее приложение (свой
-lifespan, свои routes) — `Agentlog` напрямую:
+lifespan, свои routes) — `AIQ` напрямую:
 `examples/embedded_fastapi/main.py`, контракт в
 [docs/fastapi.md](fastapi.md).
 

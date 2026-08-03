@@ -1,7 +1,7 @@
 # Durable Sequence
 
 `Sequence` is a linear, fail-fast parent run. Each child remains a separate
-`AgentlogApplication` run with its own history. The parent commits only child-start
+`AIQApplication` run with its own history. The parent commits only child-start
 identity, terminal outcome, and exact output `ArtifactRef` values.
 
 For 0.3 there is no branching, loop, parallel execution, compensation, or retry

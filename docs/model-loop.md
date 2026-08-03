@@ -110,11 +110,11 @@ application.register(
 A retryable request rejection is committed and returned to the model as tool
 feedback so it can propose a new call. A non-retryable rejection fails the
 run. A postcondition failure is always non-retryable: the external side effect
-may already have happened, so Agentlog does not invoke it again implicitly.
+may already have happened, so AIQ does not invoke it again implicitly.
 Provider-side idempotency remains necessary for crash retries of effects.
 
 This seam does not establish relevance by itself. Without an application
-policy, Agentlog still validates only the structural tool contract.
+policy, AIQ still validates only the structural tool contract.
 
 ### Validation is not planning
 
@@ -145,7 +145,7 @@ all pass while making no progress toward the user's goal. `ModelLoopLimits`
 bounds model steps and tool calls, which is a budget, not planning or proof
 of goal completion.
 
-Agentlog currently provides durable proposals, local validation hooks,
+AIQ currently provides durable proposals, local validation hooks,
 execution, observations, replay, and execution budgets. On their own these do
 not provide a generic goal representation or an action-selection algorithm.
 The v0.4 candidate below adds an opt-in, application-supplied JSON workflow

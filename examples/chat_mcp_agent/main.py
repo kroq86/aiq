@@ -5,7 +5,7 @@ import asyncio
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     DurableDispatcher,
     DurableEffectDispatcher,
@@ -281,7 +281,7 @@ if __name__ == "__main__":
         "database",
         type=Path,
         nargs="?",
-        default=Path("agentlog-chat-demo.db"),
+        default=Path("aiq-chat-demo.db"),
     )
     arguments = parser.parse_args()
     asyncio.run(main(arguments.database))

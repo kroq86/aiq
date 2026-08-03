@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
-[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/aiq-setdb-bin
 PYTHON_BIN="${PYTHON_BIN:-$ROOT/.venv/bin/python}"
 
 cd "$ROOT"

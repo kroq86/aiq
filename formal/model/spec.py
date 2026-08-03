@@ -1,6 +1,6 @@
-"""Canonical Agentlog 0.2 transition specification.
+"""Canonical AIQ 0.2 transition specification.
 
-This module is product-independent: it imports neither Agentlog nor transport,
+This module is product-independent: it imports neither AIQ nor transport,
 storage, provider, or tool adapters. Tests consume it; they do not define it.
 """
 

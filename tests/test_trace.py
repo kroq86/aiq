@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     CausalEdge,
     DanglingCausation,
@@ -258,7 +258,7 @@ def build_chat_agent(name: str = "energy-assistant") -> AgentDefinition[ChatStat
 def build_effects(*, stamp_operation_id: bool) -> EffectRegistry[ChatState]:
     """`stamp_operation_id` models an application that chooses to record its
     stable operation_id (docs/effects.md: operation_id = str(request.event_id))
-    back onto the result event's metadata. Agentlog itself does not require or
+    back onto the result event's metadata. AIQ itself does not require or
     invent this -- trace.py only surfaces it if it's already there."""
     effects = EffectRegistry[ChatState]()
 

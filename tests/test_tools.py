@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 
-from agentlog import (
+from aiq import (
     FunctionTool,
     ToolArgumentsRejected,
     ToolDefinition,

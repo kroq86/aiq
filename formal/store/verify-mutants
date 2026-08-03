@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
 SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
-[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/agentlog-setdb-bin
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-store-mutants.XXXXXX")"
+[[ -n "$SETDB_BIN" ]] || SETDB_BIN=/tmp/aiq-setdb-bin
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/aiq-store-mutants.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 mutants=(history_rewrite position_regression duplicate_event_id partial_batch output_without_checkpoint checkpoint_without_output conflict_changes_state append_batch_as_one)

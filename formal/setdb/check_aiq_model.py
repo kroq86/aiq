@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded exhaustive checker for the Agentlog 0.2 reference transition system."""
+"""Bounded exhaustive checker for the AIQ 0.2 reference transition system."""
 
 from __future__ import annotations
 
@@ -129,7 +129,7 @@ def main() -> int:
     if not args.setdb_bin:
         parser.error("setdb not found; pass --setdb-bin or SETDB_BIN")
     states, edges, violations, parents = explore(args.mutant)
-    temporary = tempfile.TemporaryDirectory(prefix="agentlog-setdb-") if not args.database else None
+    temporary = tempfile.TemporaryDirectory(prefix="aiq-setdb-") if not args.database else None
     database = Path(args.database) if args.database else Path(temporary.name) / "model.db"
     persist(args.setdb_bin, database, states, edges, violations)
     stored = run_setdb(

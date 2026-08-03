@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from agentlog import (
+from aiq import (
     Agent,
     ArtifactRef,
     DurableDispatcher,
@@ -25,7 +25,7 @@ from agentlog import (
     build_causal_trace,
     run_stream_id,
 )
-from agentlog.evals import CrashWindowEvidence, InvocationObservation
+from aiq.evals import CrashWindowEvidence, InvocationObservation
 from tests.model.crash_window_harness import (
     CrashBeforeCommitSQLiteEventStore,
     InjectedProcessCrash,

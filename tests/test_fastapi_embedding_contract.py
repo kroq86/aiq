@@ -21,16 +21,17 @@ with warnings.catch_warnings():
     )
     from fastapi.testclient import TestClient
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     EffectContext,
+    EffectLeaseOptions,
     EffectRegistry,
     Event,
     InMemoryEffectAttemptStore,
     InMemoryEventStore,
 )
-from agentlog.fastapi import AgentRuntime, Agentlog, compose_lifespans
-from agentlog.http import create_app
+from aiq.fastapi import AgentRuntime, AIQ, compose_lifespans
+from aiq.http import create_app
 
 
 def _runtime(name: str = "assistant") -> AgentRuntime:
@@ -48,11 +49,19 @@ def _runtime(name: str = "assistant") -> AgentRuntime:
 
 
 class FastAPIEmbeddingContractTests(unittest.TestCase):
+    def test_only_lease_options_are_exported_from_top_level(self) -> None:
+        import aiq
+
+        self.assertTrue(hasattr(aiq, "EffectLeaseOptions"))
+        self.assertFalse(hasattr(aiq, "EffectLease"))
+        self.assertFalse(hasattr(aiq, "FencedEffectStore"))
+        self.assertFalse(hasattr(aiq, "LeaseLostError"))
+
     def test_attempt_store_is_forwarded_only_to_effect_dispatchers(
         self,
     ) -> None:
         attempt_store = InMemoryEffectAttemptStore()
-        integration = Agentlog(
+        integration = AIQ(
             store=InMemoryEventStore(),
             runtimes={"assistant": _runtime()},
             attempt_store=attempt_store,
@@ -67,6 +76,31 @@ class FastAPIEmbeddingContractTests(unittest.TestCase):
             hasattr(integration._reaction_dispatchers[0], "_attempt_store")
         )
 
+    def test_lease_options_are_forwarded_only_to_effect_dispatchers(
+        self,
+    ) -> None:
+        options = EffectLeaseOptions("worker-a")
+        integration = AIQ(
+            store=InMemoryEventStore(),
+            runtimes={"assistant": _runtime()},
+            lease_options=options,
+        )
+        self.assertIs(
+            integration._effect_dispatchers[0]._lease_options, options
+        )
+        self.assertFalse(
+            hasattr(integration._reaction_dispatchers[0], "_lease_options")
+        )
+
+    def test_host_rejects_attempt_store_with_lease_options(self) -> None:
+        with self.assertRaisesRegex(ValueError, "attempt_store"):
+            AIQ(
+                store=InMemoryEventStore(),
+                runtimes={"assistant": _runtime()},
+                attempt_store=InMemoryEffectAttemptStore(),
+                lease_options=EffectLeaseOptions("worker-a"),
+            )
+
     def test_core_package_import_does_not_import_fastapi(self) -> None:
         script = """
 import builtins
@@ -76,8 +110,8 @@ def guarded_import(name, *args, **kwargs):
         raise RuntimeError("FastAPI was imported transitively")
     return real_import(name, *args, **kwargs)
 builtins.__import__ = guarded_import
-import agentlog
-assert agentlog.InMemoryEventStore
+import aiq
+assert aiq.InMemoryEventStore
 """
         environment = dict(os.environ)
         environment["PYTHONPATH"] = os.pathsep.join(
@@ -106,11 +140,11 @@ def guarded_import(name, *args, **kwargs):
     return real_import(name, *args, **kwargs)
 builtins.__import__ = guarded_import
 try:
-    import agentlog.fastapi
+    import aiq.fastapi
 except ImportError as error:
-    assert "agentlog[fastapi]" in str(error), str(error)
+    assert "aiq[fastapi]" in str(error), str(error)
 else:
-    raise AssertionError("agentlog.fastapi imported without FastAPI")
+    raise AssertionError("aiq.fastapi imported without FastAPI")
 """
         environment = dict(os.environ)
         environment["PYTHONPATH"] = os.pathsep.join(
@@ -130,8 +164,8 @@ else:
     def test_two_embedded_instances_with_same_agent_name_are_isolated(self) -> None:
         first_store = InMemoryEventStore()
         second_store = InMemoryEventStore()
-        first = Agentlog(store=first_store, runtimes={"assistant": _runtime()})
-        second = Agentlog(store=second_store, runtimes={"assistant": _runtime()})
+        first = AIQ(store=first_store, runtimes={"assistant": _runtime()})
+        second = AIQ(store=second_store, runtimes={"assistant": _runtime()})
         first_app = FastAPI(lifespan=first.lifespan)
         second_app = FastAPI(lifespan=second.lifespan)
         first_app.include_router(first.router)
@@ -152,7 +186,7 @@ else:
         self.assertEqual(asyncio.run(second_store.load_global()), ())
 
     def test_router_can_be_embedded_under_host_prefix(self) -> None:
-        integration = Agentlog(
+        integration = AIQ(
             store=InMemoryEventStore(),
             runtimes={"assistant": _runtime()},
         )
@@ -188,11 +222,11 @@ else:
             for route in included_routes
             if getattr(route, "path", "").startswith("/agents/")
         }
-        self.assertEqual(endpoint_modules, {"agentlog.fastapi"})
+        self.assertEqual(endpoint_modules, {"aiq.fastapi"})
 
     def test_mapping_key_must_match_agent_definition_name(self) -> None:
         with self.assertRaises(ValueError):
-            Agentlog(
+            AIQ(
                 store=InMemoryEventStore(),
                 runtimes={"public-name": _runtime("different-name")},
             )
@@ -200,7 +234,7 @@ else:
 
 class FastAPIEmbeddingLifecycleTests(unittest.IsolatedAsyncioTestCase):
     async def test_sequential_lifespan_entries_restart_without_orphan_task(self) -> None:
-        integration = Agentlog(
+        integration = AIQ(
             store=InMemoryEventStore(),
             runtimes={},
             poll_interval_seconds=60,
@@ -224,7 +258,7 @@ class FastAPIEmbeddingLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(integration._task)
 
     async def test_duplicate_start_is_rejected_without_creating_second_worker(self) -> None:
-        integration = Agentlog(
+        integration = AIQ(
             store=InMemoryEventStore(),
             runtimes={},
             poll_interval_seconds=60,
@@ -250,21 +284,21 @@ class FastAPIEmbeddingLifecycleTests(unittest.IsolatedAsyncioTestCase):
             finally:
                 events.append("host-stop")
 
-        integration = Agentlog(
+        integration = AIQ(
             store=InMemoryEventStore(),
             runtimes={},
             poll_interval_seconds=60,
         )
 
         @asynccontextmanager
-        async def observed_agentlog_lifespan(app: FastAPI):
-            events.append("agentlog-start")
+        async def observed_aiq_lifespan(app: FastAPI):
+            events.append("aiq-start")
             async with integration.lifespan(app):
                 yield
-            events.append("agentlog-stop")
+            events.append("aiq-stop")
 
         app = FastAPI()
-        lifespan = compose_lifespans(host_lifespan, observed_agentlog_lifespan)
+        lifespan = compose_lifespans(host_lifespan, observed_aiq_lifespan)
 
         async with lifespan(app):
             events.append("request-window")
@@ -274,9 +308,9 @@ class FastAPIEmbeddingLifecycleTests(unittest.IsolatedAsyncioTestCase):
             events,
             [
                 "host-start",
-                "agentlog-start",
+                "aiq-start",
                 "request-window",
-                "agentlog-stop",
+                "aiq-stop",
                 "host-stop",
             ],
         )

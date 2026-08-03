@@ -6,7 +6,7 @@ from pathlib import Path
 
 import uvicorn
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     EffectContext,
     EffectRegistry,
@@ -14,7 +14,7 @@ from agentlog import (
     SQLiteEventStore,
     effect_request,
 )
-from agentlog.http import AgentRuntime, create_app
+from aiq.http import AgentRuntime, create_app
 
 
 @dataclass(frozen=True)
@@ -194,7 +194,7 @@ if __name__ == "__main__":
         "database",
         type=Path,
         nargs="?",
-        default=Path("agentlog-http-demo.db"),
+        default=Path("aiq-http-demo.db"),
     )
     parser.add_argument("--port", type=int, default=8000)
     arguments = parser.parse_args()

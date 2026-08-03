@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-abstract-generate.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/aiq-abstract-generate.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 (cd "$ROOT" && "${FASM_BIN:-$(command -v fasm)}" abstract_generate_only.asm "$WORK/generate" >/dev/null)
 output="$($WORK/generate)"

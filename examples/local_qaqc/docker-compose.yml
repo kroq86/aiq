@@ -1,20 +1,20 @@
 services:
-  agentlog:
+  aiq:
     build:
       context: ../..
       dockerfile: examples/local_qaqc/Dockerfile
     command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
-      AGENTLOG_PROVIDER: ${AGENTLOG_PROVIDER:-deterministic}
-      AGENTLOG_FAULT: ${AGENTLOG_FAULT:-none}
-      AGENTLOG_DB: /data/agentlog.db
+      AIQ_PROVIDER: ${AIQ_PROVIDER:-deterministic}
+      AIQ_FAULT: ${AIQ_FAULT:-none}
+      AIQ_DB: /data/aiq.db
       ARTIFACT_DB: /data/artifacts.db
       MCP_URL: http://mcp-server:8001/mcp
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/chat}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:1b}
       FAULT_DIR: /data/faults
     ports: ["8000:8000"]
-    volumes: ["agentlog-data:/data"]
+    volumes: ["aiq-data:/data"]
     depends_on:
       mcp-server:
         condition: service_started
@@ -30,7 +30,7 @@ services:
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
-      MINIO_BUCKET: agentlog-lab
+      MINIO_BUCKET: aiq-lab
       QA_POLICY: ${QA_POLICY:-allow}
       MCP_FAULT: ${MCP_FAULT:-none}
     ports: ["8001:8001"]
@@ -67,6 +67,6 @@ services:
     ports: ["11434:11434"]
 
 volumes:
-  agentlog-data:
+  aiq-data:
   minio-data:
   ollama-data:

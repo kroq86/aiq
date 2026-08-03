@@ -6,15 +6,15 @@ import unittest
 from fastapi import FastAPI, HTTPException
 from starlette.requests import Request
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     EffectContext,
     EffectRegistry,
     Event,
     InMemoryEventStore,
 )
-from agentlog.fastapi import AgentRuntime, Agentlog
-from agentlog.streams import run_stream_id
+from aiq.fastapi import AgentRuntime, AIQ
+from aiq.streams import run_stream_id
 
 
 def _runtime(*, terminal: bool) -> AgentRuntime:
@@ -54,18 +54,18 @@ async def _request(last_event_id: str | None = None) -> Request:
     )
 
 
-def _stream_endpoint(integration: Agentlog):
+def _stream_endpoint(integration: AIQ):
     return next(
         route.endpoint
         for route in integration.router.routes
-        if getattr(route, "name", "") == "agentlog:stream_run"
+        if getattr(route, "name", "") == "aiq:stream_run"
     )
 
 
 class SSECursorContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_completed_cursor_equal_latest_closes_without_waiting(self) -> None:
         store = InMemoryEventStore()
-        integration = Agentlog(
+        integration = AIQ(
             store=store,
             runtimes={"assistant": _runtime(terminal=True)},
         )
@@ -87,7 +87,7 @@ class SSECursorContractTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_cursor_greater_than_latest_is_rejected(self) -> None:
         store = InMemoryEventStore()
-        integration = Agentlog(
+        integration = AIQ(
             store=store,
             runtimes={"assistant": _runtime(terminal=True)},
         )
@@ -108,7 +108,7 @@ class SSECursorContractTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_active_cursor_equal_latest_waits_then_emits_future_event(self) -> None:
         store = InMemoryEventStore()
-        integration = Agentlog(
+        integration = AIQ(
             store=store,
             runtimes={"assistant": _runtime(terminal=False)},
             poll_interval_seconds=60,
@@ -137,7 +137,7 @@ class SSECursorContractTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         store = InMemoryEventStore()
-        integration = Agentlog(
+        integration = AIQ(
             store=store,
             runtimes={"assistant": _runtime(terminal=True)},
         )
@@ -165,8 +165,8 @@ class SSECursorContractTests(unittest.IsolatedAsyncioTestCase):
 
 
 class OpenAPINamingContractTests(unittest.TestCase):
-    def test_agentlog_names_and_operation_ids_do_not_collide_with_host(self) -> None:
-        integration = Agentlog(
+    def test_aiq_names_and_operation_ids_do_not_collide_with_host(self) -> None:
+        integration = AIQ(
             store=InMemoryEventStore(),
             runtimes={"assistant": _runtime(terminal=False)},
         )
@@ -194,12 +194,12 @@ class OpenAPINamingContractTests(unittest.TestCase):
                 for route in integration.router.routes
             },
             {
-                "agentlog:health",
-                "agentlog:create_run",
-                "agentlog:command",
-                "agentlog:read_run",
-                "agentlog:get_trace",
-                "agentlog:stream_run",
+                "aiq:health",
+                "aiq:create_run",
+                "aiq:command",
+                "aiq:read_run",
+                "aiq:get_trace",
+                "aiq:stream_run",
             },
         )
 

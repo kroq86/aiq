@@ -15,8 +15,8 @@ with warnings.catch_warnings():
     )
     from fastapi.testclient import TestClient
 
-from agentlog import InMemoryEventStore, ToolRegistry
-from agentlog.fastapi import AgentlogApplication
+from aiq import InMemoryEventStore, ToolRegistry
+from aiq.fastapi import AIQApplication
 from tests.test_model_loop_policy import Provider, define, get_weather, run
 
 from .normalization import normalize_history
@@ -45,7 +45,7 @@ class FastAPISemanticEquivalenceTests(unittest.TestCase):
         store = InMemoryEventStore()
         tools = ToolRegistry.from_functions(get_weather)
         agent, loop = define(tools)
-        application = AgentlogApplication(store=store, poll_interval_seconds=0.01)
+        application = AIQApplication(store=store, poll_interval_seconds=0.01)
         application.register(
             agent, resources={"model": Provider(), "tools": tools}
         )

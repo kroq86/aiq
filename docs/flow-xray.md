@@ -1,13 +1,13 @@
-# Agentlog + Flow Xray
+# AIQ + Flow Xray
 
 ## Граница ответственности
 
 ```text
-Agentlog   = canonical immutable causal domain history
+AIQ   = canonical immutable causal domain history
 Flow Xray  = external visualization consumer of that history
 ```
 
-Agentlog:
+AIQ:
 
 - владеет canonical durable domain-event history одного run;
 - владеет causal metadata (`causation_id`, `correlation_id`, `operation_id`);
@@ -22,15 +22,15 @@ Flow Xray:
 - не превращает эти nodes в `TraceNode.children` — там parent/child означает
   Python runtime call, а не domain causation, и смешивать эти две модели
   нельзя;
-- остаётся независимо устанавливаемым пакетом: Agentlog не импортирует Flow
+- остаётся независимо устанавливаемым пакетом: AIQ не импортирует Flow
   Xray и не зависит от его схемы, contract — только plain JSON.
 
-Completed Agentlog run уже успешно потребляется и рендерится Flow Xray через
+Completed AIQ run уже успешно потребляется и рендерится Flow Xray через
 этот JSON — это не только направление, а подтверждённое текущее состояние.
 
 ## Что реализовано: causal trace export
 
-`src/agentlog/trace.py` предоставляет чистую, вычисляемую заново каждый раз
+`src/aiq/trace.py` предоставляет чистую, вычисляемую заново каждый раз
 проекцию immutable event log одного run — `CausalTrace`. Это не второй event
 store и не mutable trace table: экспорт всегда строится из
 `store.load(stream_id)` в момент запроса.
@@ -38,7 +38,7 @@ store и не mutable trace table: экспорт всегда строится 
 Public API:
 
 ```python
-from agentlog import TraceService
+from aiq import TraceService
 
 service = TraceService(store=store, agents={"energy-assistant": agent})
 trace = await service.export("energy-assistant", run_id)
@@ -61,7 +61,7 @@ Internal Python field names (`CausalEdge.cause_event_id`/`effect_event_id`) не
 `RunNotFoundError` — API не различает "нет такого run" и "run принадлежит
 другому агенту".
 
-HTTP-граница (опционально, если приложение уже использует `agentlog.http`):
+HTTP-граница (опционально, если приложение уже использует `aiq.http`):
 
 ```http
 GET /agents/{agent_name}/runs/{run_id}/trace
@@ -77,8 +77,8 @@ GET /agents/{agent_name}/runs/{run_id}/trace
 репозитория — работает из установленного пакета:
 
 ```bash
-python -m agentlog.demo --status completed --output trace.json
-python -m agentlog.demo --status active    --output trace.json
+python -m aiq.demo --status completed --output trace.json
+python -m aiq.demo --status active    --output trace.json
 ```
 
 Генерирует ровно один JSON-документ через `TraceService`/`trace_to_json`
@@ -87,13 +87,13 @@ agent к `terminal_status=completed` (9 nodes / 8 edges) или
 `terminal_status=active` (4 nodes, обрывается сразу после committed
 `ToolCallRequested` с persisted `operation_id`, до его effect). No real
 LLM/MCP, no network, no Flow Xray import. Reusable logic живёт в
-`agentlog.demo` (`generate_completed_trace`, `generate_active_trace`,
+`aiq.demo` (`generate_completed_trace`, `generate_active_trace`,
 `write_trace_json`); `examples/export_flow_xray_traces.py` — тонкая обёртка
 над тем же кодом для генерации обоих файлов в одну директорию.
 
 Совмещение этой команды с HTML-рендерингом в один one-command demo —
-ответственность Flow Xray, не Agentlog: эта команда производит только
-Agentlog JSON.
+ответственность Flow Xray, не AIQ: эта команда производит только
+AIQ JSON.
 
 ### Что означает этот контракт
 
@@ -109,6 +109,12 @@ Agentlog JSON.
   `operation_id` и показывают durable dispatcher-attempt facts. Они не входят
   в `domain-event-history` schema, не содержат Python call subtree/runtime
   span ID и не доказывают вход во внешний HTTP/MCP/provider.
+- **Lease/fencing добавляет durable ownership history, но не runtime span.**
+  Append-only observations связывают logical request с `worker_id`,
+  `lease_id`, fencing token, attempt и acquired/busy/expiry/renewal/takeover/
+  stale outcome. Они позволяют восстановить coordination history, но не
+  содержат Python call subtree/span ID и пока не являются bidirectional Flow
+  X-Ray runtime-call correlation.
 - **Trace — inspectable history, не cryptographic tamper evidence.** Экспорт
   доказывает то, что реально сохранено в SQLite (append-only на уровне схемы,
   see `docs/effects.md`), но не является подписанным/hash-chained proof
@@ -122,12 +128,12 @@ Agentlog JSON.
   event); result events несут тот же `operation_id` и `causation_id`,
   указывающий на request. `trace_to_json()` просто surface'ит то, что уже
   persisted в metadata — не вычисляет и не подставляет значение. Полный
-  effect identity/at-least-once контракт: `docs/effects.md`. Agentlog не
+  effect identity/at-least-once контракт: `docs/effects.md`. AIQ не
   обещает exactly-once внешнее исполнение: если процесс падает после внешнего
   side effect, но до SQLite commit, операция может повториться с тем же
   `operation_id`.
 
-## Agentlog trace contract
+## AIQ trace contract
 
 ```http
 GET /agents/{agent_name}/runs/{run_id}/trace
@@ -267,7 +273,7 @@ Last-Event-ID: {stream_version}
 }
 ```
 
-Обратные ссылки в Agentlog следует добавлять как metadata новых событий, не
+Обратные ссылки в AIQ следует добавлять как metadata новых событий, не
 переписывая старые:
 
 ```json
@@ -278,7 +284,7 @@ Last-Event-ID: {stream_version}
 }
 ```
 
-Agentlog не навязывает Flow Xray внутренний runtime-call формат.
+AIQ не навязывает Flow Xray внутренний runtime-call формат.
 
 ## Acceptance scenario runtime correlation
 

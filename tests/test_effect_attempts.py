@@ -5,7 +5,7 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from agentlog import (
+from aiq import (
     Event,
     InMemoryEffectAttemptStore,
     SQLiteEffectAttemptStore,
@@ -63,7 +63,7 @@ class EffectAttemptStoreTests(unittest.TestCase):
 
     def test_sqlite_store_persists_and_is_append_only(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "agentlog.db"
+            path = Path(temp_dir) / "aiq.db"
             event_store = run(SQLiteEventStore.open(path))
             run(
                 event_store.append(

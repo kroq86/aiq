@@ -2,7 +2,7 @@
 
 ## Decision
 
-Agentlog is verified with several small machines, not one universal proof
+AIQ is verified with several small machines, not one universal proof
 state:
 
 ```text

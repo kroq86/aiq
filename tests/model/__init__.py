@@ -1,1 +1,1 @@
-"""Executable mathematical model tests for Agentlog 0.2."""
+"""Executable mathematical model tests for AIQ 0.2."""

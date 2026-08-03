@@ -21,9 +21,9 @@ with warnings.catch_warnings():
     )
     from fastapi.testclient import TestClient
 
-from agentlog import AgentDefinition, EffectContext, EffectRegistry, Event, InMemoryEventStore
-from agentlog.fastapi import AgentRuntime, Agentlog, AgentlogApplication
-from agentlog.framework import Agent
+from aiq import AgentDefinition, EffectContext, EffectRegistry, Event, InMemoryEventStore
+from aiq.fastapi import AgentRuntime, AIQ, AIQApplication
+from aiq.framework import Agent
 
 
 @dataclass(frozen=True)
@@ -81,7 +81,7 @@ def _framework_runtime(name: str = "assistant") -> AgentRuntime:
 
 
 def _app(store: InMemoryEventStore, runtimes: dict[str, AgentRuntime]):
-    integration = Agentlog(
+    integration = AIQ(
         store=store,
         runtimes=runtimes,
         poll_interval_seconds=0.01,
@@ -90,7 +90,7 @@ def _app(store: InMemoryEventStore, runtimes: dict[str, AgentRuntime]):
 
     app = FastAPI(lifespan=integration.lifespan)
     app.include_router(integration.router)
-    app.state.test_agentlog = integration
+    app.state.test_aiq = integration
     return app
 
 
@@ -134,7 +134,7 @@ def guarded_import(name, *args, **kwargs):
         raise RuntimeError("FastAPI imported by framework core")
     return real_import(name, *args, **kwargs)
 builtins.__import__ = guarded_import
-from agentlog.framework import Agent
+from aiq.framework import Agent
 agent = Agent(name="core", initial_state=lambda: None)
 @agent.event
 @dataclass(frozen=True)
@@ -159,7 +159,7 @@ assert runtime.agent.name == "core"
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_application_registers_two_agents_without_runtime_mapping(self) -> None:
-        application = AgentlogApplication(
+        application = AIQApplication(
             store=InMemoryEventStore(),
             poll_interval_seconds=0.01,
         )
@@ -185,7 +185,7 @@ assert runtime.agent.name == "core"
         self.assertEqual(first_agent.name, "assistant-a")
 
     def test_application_rejects_duplicate_and_late_registration(self) -> None:
-        application = AgentlogApplication(store=InMemoryEventStore())
+        application = AIQApplication(store=InMemoryEventStore())
         agent = _framework_agent("assistant")
         application.register(agent)
         with self.assertRaises(ValueError):
@@ -243,8 +243,8 @@ assert runtime.agent.name == "core"
             )
             endpoint = next(
                 route.endpoint
-                for route in app.state.test_agentlog.router.routes
-                if route.name == "agentlog:stream_run"
+                for route in app.state.test_aiq.router.routes
+                if route.name == "aiq:stream_run"
             )
             response = await endpoint("assistant", run_id, request)
             seen: list[str] = []

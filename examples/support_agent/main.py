@@ -1,14 +1,14 @@
-"""The one reference app for Agentlog's public API -- run it, kill it,
+"""The one reference app for AIQ's public API -- run it, kill it,
 restart it, and see the run continue and its causal trace, without opening
-`agentlog/runtime.py`.
+`aiq/runtime.py`.
 
     python examples/support_agent/main.py support-agent.db
 
 Only imports from the public surface documented in README.md's "Public
 API" section:
 
-    from agentlog import Agent, CommandRejected, EffectFailed, SQLiteEventStore
-    from agentlog.fastapi import AgentlogApplication
+    from aiq import Agent, CommandRejected, EffectFailed, SQLiteEventStore
+    from aiq.fastapi import AIQApplication
 
 See examples/support_agent/README.md for the exact create/command/kill/
 restart/trace walkthrough.
@@ -24,8 +24,8 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 
-from agentlog import Agent, CommandRejected, EffectFailed, SQLiteEventStore
-from agentlog.fastapi import AgentlogApplication
+from aiq import Agent, CommandRejected, EffectFailed, SQLiteEventStore
+from aiq.fastapi import AIQApplication
 
 
 @dataclass(frozen=True)
@@ -130,7 +130,7 @@ def define_agent() -> Agent:
 
 async def build_app(database: Path) -> FastAPI:
     store = await SQLiteEventStore.open(database)
-    application = AgentlogApplication(store=store, poll_interval_seconds=0.2)
+    application = AIQApplication(store=store, poll_interval_seconds=0.2)
     application.register(define_agent(), context=SupportContext(model=FakeModel()))
 
     app = FastAPI(lifespan=application.lifespan)

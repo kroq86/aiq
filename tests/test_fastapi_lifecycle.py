@@ -5,7 +5,7 @@ and timeout-path tests use a small but real `shutdown_timeout_seconds`
 (e.g. 0.05s) to exercise the actual `asyncio.wait_for` timeout rather than
 guessing with sleeps.
 
-Fake dispatchers are injected by replacing `Agentlog._reaction_dispatchers`
+Fake dispatchers are injected by replacing `AIQ._reaction_dispatchers`
 / `_effect_dispatchers` after construction -- the same kind of white-box
 seam `tests/test_fastapi_embedding_contract.py` already uses (`integration._task`)
 for this module, since there is no public API for injecting synthetic
@@ -33,9 +33,9 @@ with warnings.catch_warnings():
     )
     from fastapi.testclient import TestClient
 
-from agentlog import InMemoryEventStore
-from agentlog.fastapi import Agentlog, compose_lifespans
-from agentlog.http import create_app
+from aiq import InMemoryEventStore
+from aiq.fastapi import AIQ, compose_lifespans
+from aiq.http import create_app
 
 
 class _IdleDispatcher:
@@ -75,11 +75,11 @@ class _HangingDispatcher:
         return False
 
 
-def _bare_integration(**kwargs) -> Agentlog:
-    return Agentlog(store=InMemoryEventStore(), runtimes={}, **kwargs)
+def _bare_integration(**kwargs) -> AIQ:
+    return AIQ(store=InMemoryEventStore(), runtimes={}, **kwargs)
 
 
-def _with_dispatcher(integration: Agentlog, dispatcher) -> None:
+def _with_dispatcher(integration: AIQ, dispatcher) -> None:
     integration._reaction_dispatchers = [dispatcher]
     integration._effect_dispatchers = []
 
@@ -272,7 +272,7 @@ class ShutdownTimeoutTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(elapsed, 0.05)
         self.assertLess(elapsed, 3.0)
         self.assertTrue(dispatcher.cancelled)
-        # No Agentlog task remains after forced cancellation.
+        # No AIQ task remains after forced cancellation.
         self.assertIsNone(integration._task)
         # Forced cancellation during our own shutdown is not a failure.
         self.assertEqual(integration.health.status, "stopped")
@@ -284,12 +284,12 @@ class ShutdownTimeoutTests(unittest.IsolatedAsyncioTestCase):
         create_app() API and a real stuck effect handler -- not by
         reaching into a private attribute. create_app() returns only a
         FastAPI app, so the app's own ASGI lifespan (the exact object
-        `Agentlog.lifespan` produced) is driven directly, the same way
+        `AIQ.lifespan` produced) is driven directly, the same way
         `asgi-lifespan`-style test helpers do, instead of going through
         TestClient's separate thread (which would require cross-thread
         asyncio.Event signalling)."""
-        from agentlog import AgentDefinition, EffectContext, EffectRegistry, effect_request
-        from agentlog.fastapi import AgentRuntime
+        from aiq import AgentDefinition, EffectContext, EffectRegistry, effect_request
+        from aiq.fastapi import AgentRuntime
 
         started = asyncio.Event()
         release = asyncio.Event()
@@ -394,7 +394,7 @@ class HostCleanupSurvivesWorkerProblemsTests(unittest.IsolatedAsyncioTestCase):
 
 class HealthEndpointTests(unittest.TestCase):
     def test_health_endpoint_reports_running(self) -> None:
-        integration = Agentlog(store=InMemoryEventStore(), runtimes={})
+        integration = AIQ(store=InMemoryEventStore(), runtimes={})
         app = FastAPI(lifespan=integration.lifespan)
         app.include_router(integration.router)
 
@@ -407,7 +407,7 @@ class HealthEndpointTests(unittest.TestCase):
             self.assertIsNone(body["worker_error"])
 
     def test_health_endpoint_returns_503_while_unhealthy_without_traceback(self) -> None:
-        integration = Agentlog(
+        integration = AIQ(
             store=InMemoryEventStore(), runtimes={}, poll_interval_seconds=60
         )
         # Wire the failing dispatcher in *before* the lifespan starts the

@@ -1,6 +1,6 @@
 # MCP Streamable HTTP tool adapter
 
-Agentlog ships a narrow optional MCP client boundary:
+AIQ ships a narrow optional MCP client boundary:
 
 ```text
 ToolCallRequested
@@ -13,7 +13,7 @@ ToolCallRequested
 Install it explicitly:
 
 ```bash
-python -m pip install "agentlog[mcp]"
+python -m pip install "aiq[mcp]"
 ```
 
 ## Static registration
@@ -22,7 +22,7 @@ python -m pip install "agentlog[mcp]"
 tool definition and therefore owns the versioned model-visible catalog:
 
 ```python
-from agentlog import MCPTool, ToolDefinition, ToolRegistry
+from aiq import MCPTool, ToolDefinition, ToolRegistry
 
 definition = ToolDefinition(
     "lookup_invoice",
@@ -45,12 +45,12 @@ registry.register(
 ```
 
 Automatic `list_tools()` discovery is intentionally absent. Discovering and
-silently changing the catalog would bypass Agentlog's definition/resource
+silently changing the catalog would bypass AIQ's definition/resource
 version contract.
 
 ## Operation identity
 
-Agentlog passes the durable `ToolCallRequested` operation identity into every
+AIQ passes the durable `ToolCallRequested` operation identity into every
 physical retry. A mutating MCP server can receive it as an argument that is
 not exposed to the model:
 
@@ -67,7 +67,7 @@ schema. The adapter injects it after registry and policy validation, preventing
 the model from choosing or replacing the idempotency key.
 
 The adapter does not deduplicate calls. Physical execution remains
-at-least-once; Agentlog commits at most one outcome for the durable request.
+at-least-once; AIQ commits at most one outcome for the durable request.
 The MCP server must implement deduplication for non-idempotent operations.
 
 ## Result and failure boundary
@@ -78,7 +78,7 @@ Streamable HTTP session. The adapter accepts:
 - `structuredContent`; or
 - exactly one text content block containing valid JSON.
 
-The value is frozen through Agentlog's JSON event boundary before it is
+The value is frozen through AIQ's JSON event boundary before it is
 returned. Transport, initialization, timeout, protocol, MCP `isError`, and
 invalid-content failures become `ToolExecutionFailed`; the durable model loop
 records the existing `ToolCallFailed` outcome. Argument and application-policy

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from agentlog import (
+from aiq import (
     DurableDispatcher,
     DurableEffectDispatcher,
     Event,

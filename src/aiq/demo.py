@@ -1,12 +1,12 @@
-"""Stable subprocess boundary for the Agentlog side of the Agentlog->Flow
+"""Stable subprocess boundary for the AIQ side of the AIQ->Flow
 Xray demo:
 
-    python -m agentlog.demo --status completed --output trace.json
-    python -m agentlog.demo --status active    --output trace.json
+    python -m aiq.demo --status completed --output trace.json
+    python -m aiq.demo --status active    --output trace.json
 
 This module drives the fake reference chat agent (no real LLM, no real MCP,
 no network) and writes exactly one schema-v1 domain-event-history JSON
-document, produced through Agentlog's real exporter (`TraceService` /
+document, produced through AIQ's real exporter (`TraceService` /
 `trace_to_json`) -- never hand-assembled. It does not import Flow Xray and
 does not start an HTTP server; combining this output into an HTML view is
 Flow Xray's responsibility, not this module's.
@@ -67,7 +67,7 @@ from .runtime import (
 from .streams import run_stream_id
 from .trace import TraceService, trace_to_json
 
-_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "agentlog.demo")
+_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "aiq.demo")
 _AGENT_NAME = "demo-assistant"
 
 __all__ = [
@@ -358,11 +358,11 @@ _GENERATORS = {
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="python -m agentlog.demo",
+        prog="python -m aiq.demo",
         description=(
-            "Generate one Agentlog schema-v1 domain-event-history JSON "
+            "Generate one AIQ schema-v1 domain-event-history JSON "
             "document from the fake reference chat agent (no real LLM/MCP, "
-            "no network). This produces Agentlog JSON only -- rendering it "
+            "no network). This produces AIQ JSON only -- rendering it "
             "as HTML is Flow Xray's job, not this command's."
         ),
     )
@@ -404,7 +404,7 @@ def main(argv: list[str] | None = None) -> int:
         document = asyncio.run(_run(args))
         write_trace_json(document, args.output, pretty=not args.compact)
     except Exception as error:  # noqa: BLE001 - CLI boundary, report and exit non-zero
-        print(f"agentlog.demo: error: {error}", file=sys.stderr)
+        print(f"aiq.demo: error: {error}", file=sys.stderr)
         return 1
 
     print(f"output={args.output}")

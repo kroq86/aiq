@@ -1,7 +1,7 @@
 # Runtime refinement against the bounded formal model
 
 This layer is separate from the FASM safety proof. Python extracts and
-normalizes real Agentlog runtime snapshots but does not implement formal
+normalizes real AIQ runtime snapshots but does not implement formal
 transition rules. FASM emits the canonical 48-byte encoding for every formal
 state; setdb remains the source of `Reachable` and `Transition`.
 

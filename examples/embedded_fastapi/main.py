@@ -1,6 +1,6 @@
-"""Demonstrates embedding Agentlog into an *existing* host application --
-Agentlog does not own the whole app. The host has its own route (`/health`)
-and its own lifespan; Agentlog is mounted under `/api` and its lifespan is
+"""Demonstrates embedding AIQ into an *existing* host application --
+AIQ does not own the whole app. The host has its own route (`/health`)
+and its own lifespan; AIQ is mounted under `/api` and its lifespan is
 composed with the host's via `compose_lifespans`, not substituted for it.
 
 Run:
@@ -28,7 +28,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     EffectContext,
     EffectRegistry,
@@ -36,7 +36,7 @@ from agentlog import (
     SQLiteEventStore,
     effect_request,
 )
-from agentlog.fastapi import Agentlog, AgentRuntime, compose_lifespans
+from aiq.fastapi import AIQ, AgentRuntime, compose_lifespans
 
 
 @dataclass(frozen=True)
@@ -156,9 +156,9 @@ async def build_app(database: Path) -> FastAPI:
         effects=define_effects(),
         context=EffectContext({"llm": FakeLLM(), "mcp": FakeMCP()}),
     )
-    agentlog = Agentlog(store=store, runtimes={"energy-assistant": runtime})
+    aiq = AIQ(store=store, runtimes={"energy-assistant": runtime})
 
-    # The host application's own lifespan -- proves Agentlog composes with
+    # The host application's own lifespan -- proves AIQ composes with
     # an existing one instead of replacing it.
     @asynccontextmanager
     async def host_lifespan(app: FastAPI):
@@ -168,15 +168,15 @@ async def build_app(database: Path) -> FastAPI:
         finally:
             print("host application shutting down")
 
-    app = FastAPI(lifespan=compose_lifespans(host_lifespan, agentlog.lifespan))
+    app = FastAPI(lifespan=compose_lifespans(host_lifespan, aiq.lifespan))
 
-    # A route that belongs entirely to the host, not to Agentlog.
+    # A route that belongs entirely to the host, not to AIQ.
     @app.get("/health")
     async def health() -> dict:
         return {"status": "ok"}
 
-    # Agentlog owns everything under /api/agents/... ; the host owns the rest.
-    app.include_router(agentlog.router, prefix="/api")
+    # AIQ owns everything under /api/agents/... ; the host owns the rest.
+    app.include_router(aiq.router, prefix="/api")
 
     return app
 
@@ -187,7 +187,7 @@ def main() -> None:
         "database",
         type=Path,
         nargs="?",
-        default=Path("agentlog-embedded-demo.db"),
+        default=Path("aiq-embedded-demo.db"),
     )
     parser.add_argument("--port", type=int, default=8000)
     arguments = parser.parse_args()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from dataclasses import dataclass, replace
 
-from agentlog import (
+from aiq import (
     Agent, DurableDispatcher, DurableEffectDispatcher, DurableModelLoop, Event,
     InMemoryEventStore, ModelMessage, ModelRequest, ModelResponse, ToolCall,
     ToolRegistry, ValidationDecision, run_stream_id,

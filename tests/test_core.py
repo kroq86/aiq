@@ -4,7 +4,7 @@ import unittest
 from dataclasses import dataclass, replace
 from uuid import uuid4
 
-from agentlog import (
+from aiq import (
     CheckpointConflictError,
     DuplicateEventError,
     Event,

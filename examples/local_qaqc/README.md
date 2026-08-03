@@ -3,24 +3,24 @@
 This lab exercises the integration boundary, not a stronger formal claim:
 
 ```text
-curl -> FastAPI/Agentlog -> provider -> MCP Streamable HTTP -> MinIO
+curl -> FastAPI/AIQ -> provider -> MCP Streamable HTTP -> MinIO
      -> SQLiteArtifactStore.register_external -> SQLite EventStore
 ```
 
-The Agentlog service composes the shipped `agentlog.MCPTool` Streamable HTTP
+The AIQ service composes the shipped `aiq.MCPTool` Streamable HTTP
 client with QA/QC-specific artifact registration and fault injection. The MCP
 server is a real official-SDK `FastMCP` process; its domain data remains a local
 deterministic fixture.
 
 The deterministic provider is the default because restart assertions must not
-depend on planner sampling. `AGENTLOG_PROVIDER=ollama` switches the same durable
+depend on planner sampling. `AIQ_PROVIDER=ollama` switches the same durable
 loop to the real `OllamaProvider`.
 
 ## Start and run
 
 ```bash
 cd examples/local_qaqc
-docker compose up --build -d minio minio-init mcp-server agentlog
+docker compose up --build -d minio minio-init mcp-server aiq
 curl -sS http://localhost:8000/health
 curl -sS -X POST http://localhost:8000/runs \
   -H 'content-type: application/json' \
@@ -33,12 +33,12 @@ Wait until the history ends in `RunCompleted`. It must contain four
 `ToolCallRequested`/terminal tool outcomes and one external report ref with an
 `s3://...versionId=...` storage reference.
 
-For Ollama, pull the model into the Compose service once and restart Agentlog:
+For Ollama, pull the model into the Compose service once and restart AIQ:
 
 ```bash
 docker compose up -d ollama
 docker compose exec ollama ollama pull llama3.2:1b
-AGENTLOG_PROVIDER=ollama docker compose up --build -d agentlog
+AIQ_PROVIDER=ollama docker compose up --build -d aiq
 ```
 
 `llama3.2:1b` is available as a transport smoke model, but in the recorded
@@ -73,7 +73,7 @@ is demonstrated, but planning repeatability is not established by those runs.
 
 The lab sets `OllamaProvider(..., think=False)` explicitly. In two recorded
 Ollama 0.22.1 runs, Qwen emitted two identical `list_rules` calls in its first
-response. Agentlog correctly rejected both responses under its single-tool
+response. AIQ correctly rejected both responses under its single-tool
 policy, so both runs ended in `RunFailed` before tool execution and produced no
 artifact. Disabling thinking reduced the observed first-call duration to about
 32 and 39 seconds, but did not make this model a reliable planner.
@@ -107,15 +107,15 @@ claim that the complete lab environment is byte-for-byte reproducible.
 ## Fault/policy modes
 
 ```bash
-QA_POLICY=deny docker compose up --build -d mcp-server agentlog
-MCP_FAULT=change_after_pin docker compose up --build -d mcp-server agentlog
-MCP_FAULT=digest_mismatch docker compose up --build -d mcp-server agentlog
-MCP_FAULT=timeout_after_put docker compose up --build -d mcp-server agentlog
-AGENTLOG_FAULT=after_put_before_registration \
-  docker compose up --build -d agentlog
-AGENTLOG_FAULT=after_registration_before_result \
-  docker compose up --build -d agentlog
-docker compose restart agentlog
+QA_POLICY=deny docker compose up --build -d mcp-server aiq
+MCP_FAULT=change_after_pin docker compose up --build -d mcp-server aiq
+MCP_FAULT=digest_mismatch docker compose up --build -d mcp-server aiq
+MCP_FAULT=timeout_after_put docker compose up --build -d mcp-server aiq
+AIQ_FAULT=after_put_before_registration \
+  docker compose up --build -d aiq
+AIQ_FAULT=after_registration_before_result \
+  docker compose up --build -d aiq
+docker compose restart aiq
 ```
 
 Policy denial produces a durable tool failure without a report. The pinning
@@ -123,7 +123,7 @@ fault changes `latest` after `stat_dataset`; QA/QC must still read the exact old
 version. Digest mismatch fails before report creation. Timeout-after-PUT leaves
 an external object without a registered identity and commits a tool failure.
 
-The two `AGENTLOG_FAULT` modes terminate the Agentlog process exactly once per
+The two `AIQ_FAULT` modes terminate the AIQ process exactly once per
 operation using a marker in the durable lab volume. Restart the service after
 exit; the committed request is retried with the same operation identity,
 physical execution may repeat, and the committed observation remains singular.

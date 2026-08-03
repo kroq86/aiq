@@ -4,7 +4,7 @@ import asyncio
 import unittest
 from dataclasses import dataclass, replace
 
-from agentlog import (
+from aiq import (
     Agent,
     DefinitionError,
     DefinitionResourceMismatch,
@@ -24,7 +24,7 @@ from agentlog import (
     ValidationRejected,
     run_stream_id,
 )
-from agentlog.model_loop import _fingerprint_snapshot
+from aiq.model_loop import _fingerprint_snapshot
 
 
 def run(coro):
@@ -144,7 +144,7 @@ class ModelLoopPolicyTests(unittest.TestCase):
         store = InMemoryEventStore()
         stream_id = run_stream_id("assistant", "validation-rejected")
         run(store.append(stream_id, -1, (
-            __import__("agentlog").Event("RunCreated", {"agent": "assistant", "definition_version": "1"}),
+            __import__("aiq").Event("RunCreated", {"agent": "assistant", "definition_version": "1"}),
             agent.handle_command("message", {"text": "weather"})[0],
         )))
         history = self._drive(agent, runtime, store, stream_id)
@@ -170,7 +170,7 @@ class ModelLoopPolicyTests(unittest.TestCase):
         store = InMemoryEventStore()
         stream_id = run_stream_id("assistant", "validation-accepted")
         run(store.append(stream_id, -1, (
-            __import__("agentlog").Event("RunCreated", {"agent": "assistant", "definition_version": "1"}),
+            __import__("aiq").Event("RunCreated", {"agent": "assistant", "definition_version": "1"}),
             agent.handle_command("message", {"text": "weather"})[0],
         )))
         history = self._drive(agent, runtime, store, stream_id)
@@ -211,7 +211,7 @@ class ModelLoopPolicyTests(unittest.TestCase):
         store = InMemoryEventStore()
         stream_id = run_stream_id("assistant", "validation-ambiguous")
         run(store.append(stream_id, -1, (
-            __import__("agentlog").Event("RunCreated", {"agent": "assistant", "definition_version": "1"}),
+            __import__("aiq").Event("RunCreated", {"agent": "assistant", "definition_version": "1"}),
             agent.handle_command("message", {"text": "weather"})[0],
         )))
         history = self._drive(agent, runtime, store, stream_id)
@@ -241,7 +241,7 @@ class ModelLoopPolicyTests(unittest.TestCase):
         store = InMemoryEventStore()
         stream_id = run_stream_id("assistant", "postcondition-failed")
         run(store.append(stream_id, -1, (
-            __import__("agentlog").Event("RunCreated", {"agent": "assistant", "definition_version": "1"}),
+            __import__("aiq").Event("RunCreated", {"agent": "assistant", "definition_version": "1"}),
             agent.handle_command("message", {"text": "weather"})[0],
         )))
         history = self._drive(agent, runtime, store, stream_id)
@@ -305,7 +305,7 @@ class ModelLoopPolicyTests(unittest.TestCase):
         agent, loop = define(tools)
         runtime = agent.build_runtime(context={"model": Provider(), "tools": tools})
         stream_id = run_stream_id("assistant", "drift")
-        from agentlog import Event, FunctionTool
+        from aiq import Event, FunctionTool
 
         run(
             store.append(
@@ -361,7 +361,7 @@ class ModelLoopPolicyTests(unittest.TestCase):
                 stream_id,
                 -1,
                 (
-                    __import__("agentlog").Event(
+                    __import__("aiq").Event(
                         "RunCreated", {"agent": "assistant", "definition_version": "1"}
                     ),
                     agent.handle_command("message", {"text": "weather"})[0],

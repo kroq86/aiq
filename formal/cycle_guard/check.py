@@ -1,5 +1,5 @@
 """Bounded finite abstraction of the v0.4 repeated-workflow-state guard
-(`_cycle_failure` in `src/agentlog/model_loop.py`).
+(`_cycle_failure` in `src/aiq/model_loop.py`).
 
 This is a standalone small local model, not an extension of
 `formal/model/spec.py`'s trace reference model and not the FASM/setdb

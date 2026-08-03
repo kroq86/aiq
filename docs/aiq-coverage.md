@@ -1,16 +1,16 @@
 # AIQ coverage contract: tickets 10–47
 
 This document is the repository-local answer to the 38 AI-system questions
-numbered 10 through 47. Coverage does not mean that Agentlog implements every
+numbered 10 through 47. Coverage does not mean that AIQ implements every
 adjacent platform. Each ticket is classified as:
 
 - `implemented` — the repository contains executable runtime behavior and a
-  test or bounded formal check for the stated Agentlog capability;
-- `partial` — Agentlog implements only its durable-runtime portion, exposes an
+  test or bounded formal check for the stated AIQ capability;
+- `partial` — AIQ implements only its durable-runtime portion, exposes an
   application-owned seam, or provides scenario evidence rather than a generic
   subsystem;
 - `out_of_scope` — the capability belongs to RAG, first-class MCP, broker, or
-  production-operations infrastructure outside Agentlog's product boundary.
+  production-operations infrastructure outside AIQ's product boundary.
 
 Evidence levels remain distinct: a passing scenario is not a universal proof,
 a bounded model is not proof of Python, and a stable operation ID is not
@@ -19,7 +19,7 @@ exactly-once physical execution.
 ## Ticket 10: AI agent
 - Status: `partial`
 - Levels: `agent`
-- Answer: Agentlog implements a bounded tool-using agent runtime in which a model proposes and deterministic code validates and executes; it is not a generic autonomous-agent taxonomy or planner.
+- Answer: AIQ implements a bounded tool-using agent runtime in which a model proposes and deterministic code validates and executes; it is not a generic autonomous-agent taxonomy or planner.
 - Evidence:
   - [Positioning](positioning.md)
   - [Bounded corporate example](../examples/bounded_corporate_agent/README.md)
@@ -31,7 +31,7 @@ exactly-once physical execution.
 - Levels: `agent`, `workflow`
 - Answer: `DurableModelLoop` implements propose, persist, validate, execute, observe, continue, and terminal handling through reactions and durable effects.
 - Evidence:
-  - [Model-loop implementation](../src/agentlog/model_loop.py)
+  - [Model-loop implementation](../src/aiq/model_loop.py)
   - [Model-loop policy tests](../tests/test_model_loop_policy.py)
   - [Model-loop contract](model-loop.md)
 - Boundary: The runtime controls execution; observation interpretation and next-action quality remain model/application responsibilities.
@@ -40,9 +40,9 @@ exactly-once physical execution.
 ## Ticket 12: Planning and execution roles
 - Status: `partial`
 - Levels: `agent`, `workflow`
-- Answer: Agentlog separates model proposal, execution, and application validation, but it does not ship generic planner, router, coordinator, or verifier-agent components.
+- Answer: AIQ separates model proposal, execution, and application validation, but it does not ship generic planner, router, coordinator, or verifier-agent components.
 - Evidence:
-  - [Validation contracts](../src/agentlog/validation.py)
+  - [Validation contracts](../src/aiq/validation.py)
   - [Validation is not planning](model-loop.md)
 - Boundary: Planning strategy is application-owned; the core only provides a constrained execution seam.
 - Not proved: Plan correctness, optimality, and multi-agent coordination are open.
@@ -50,7 +50,7 @@ exactly-once physical execution.
 ## Ticket 13: ReAct
 - Status: `out_of_scope`
 - Levels: `agent`
-- Answer: Agentlog can run an action/observation loop, but it does not implement the named Thought/Action/Observation ReAct protocol or store chain-of-thought.
+- Answer: AIQ can run an action/observation loop, but it does not implement the named Thought/Action/Observation ReAct protocol or store chain-of-thought.
 - Evidence:
   - [Positioning](positioning.md)
   - [Model-loop contract](model-loop.md)
@@ -62,7 +62,7 @@ exactly-once physical execution.
 - Levels: `agent`, `workflow`
 - Answer: The model is allowed to propose one bounded tool action while code owns tool availability, validation, transitions, limits, and completion.
 - Evidence:
-  - [Durable model loop](../src/agentlog/model_loop.py)
+  - [Durable model loop](../src/aiq/model_loop.py)
   - [Bounded workflow E2E](../tests/test_v04_bounded_workflow_e2e.py)
   - [Bounded corporate example](../examples/bounded_corporate_agent/main.py)
 - Boundary: This is a controlled middle ground, not an unrestricted autonomous agent.
@@ -73,10 +73,10 @@ exactly-once physical execution.
 - Levels: `agent`
 - Answer: Any `ModelProvider`, including the optional local Ollama provider, can be used; the bounded example shows a deterministic narrow proposer.
 - Evidence:
-  - [Ollama provider](../src/agentlog/providers/ollama.py)
+  - [Ollama provider](../src/aiq/providers/ollama.py)
   - [Bounded provider example](../examples/bounded_corporate_agent/main.py)
   - [Bounded Ollama integration evidence](../examples/bounded_corporate_agent/EVIDENCE.md)
-- Boundary: Agentlog supplies the runtime contract, not classifier, reranker, extractor, or summarizer model training.
+- Boundary: AIQ supplies the runtime contract, not classifier, reranker, extractor, or summarizer model training.
 - Not proved: Reliability of a small model as planner or action selector is not established.
 
 ## Ticket 16: Structured output
@@ -84,8 +84,8 @@ exactly-once physical execution.
 - Levels: `data`, `artifact`
 - Answer: Tool arguments use a deliberately small JSON Schema subset, events enforce frozen JSON-compatible data, and application hooks perform semantic/business validation.
 - Evidence:
-  - [Tool schema validation](../src/agentlog/tools.py)
-  - [Validation decisions](../src/agentlog/validation.py)
+  - [Tool schema validation](../src/aiq/tools.py)
+  - [Validation decisions](../src/aiq/validation.py)
   - [Tool tests](../tests/test_tools.py)
 - Boundary: Final model answers are strings; there is no generic Pydantic or full JSON Schema contract for arbitrary model decisions.
 - Not proved: Structural validity does not establish semantic truth or business admissibility.
@@ -95,8 +95,8 @@ exactly-once physical execution.
 - Levels: `artifact`, `agent`
 - Answer: A model proposes a typed `ToolCall`; the runtime persists the request, validates registry/schema/policy, executes the selected tool, and persists a distinct outcome.
 - Evidence:
-  - [Tool and model types](../src/agentlog/models.py)
-  - [Tool lifecycle](../src/agentlog/model_loop.py)
+  - [Tool and model types](../src/aiq/models.py)
+  - [Tool lifecycle](../src/aiq/model_loop.py)
   - [Tool tests](../tests/test_tools.py)
 - Boundary: A model proposes the call but never owns physical execution or admissibility.
 - Not proved: Tool usefulness and external-system correctness are application concerns.
@@ -104,9 +104,9 @@ exactly-once physical execution.
 ## Ticket 18: Guardrails
 - Status: `partial`
 - Levels: `agent`, `workflow`
-- Answer: Agentlog provides a tool allowlist, schema checks, application input/transition/output hooks, limits, workflow invariant, and goal gate.
+- Answer: AIQ provides a tool allowlist, schema checks, application input/transition/output hooks, limits, workflow invariant, and goal gate.
 - Evidence:
-  - [Validation API](../src/agentlog/validation.py)
+  - [Validation API](../src/aiq/validation.py)
   - [Constrained execution E2E](../tests/test_v04_constrained_execution_e2e.py)
 - Boundary: Human confirmation and generic role/permission policy are not built-in; domain guards are opt-in application predicates.
 - Not proved: Configuring hooks does not prove that their policy is complete or correct.
@@ -116,19 +116,19 @@ exactly-once physical execution.
 - Levels: `artifact`, `agent`, `workflow`
 - Answer: Canonical state is reconstructed by folding durable events; model-loop continuation can carry a validated workflow snapshot and state fingerprints across turns and restart.
 - Evidence:
-  - [Event core](../src/agentlog/core.py)
-  - [Workflow snapshot implementation](../src/agentlog/model_loop.py)
+  - [Event core](../src/aiq/core.py)
+  - [Workflow snapshot implementation](../src/aiq/model_loop.py)
   - [Snapshot/fingerprint restart-equivalence tests](../tests/test_v04_constrained_execution_e2e.py)
 - Boundary: There is no universal schema for confirmed facts, candidates, pending actions, or trust markers.
-- Not proved: Agentlog is not a general long-term memory system.
+- Not proved: AIQ is not a general long-term memory system.
 
 ## Ticket 20: Basic RAG pipeline
 - Status: `out_of_scope`
 - Levels: `data`
-- Answer: Agentlog does not implement parse, chunk, embed, or index stages.
+- Answer: AIQ does not implement parse, chunk, embed, or index stages.
 - Evidence:
   - [Product boundary](positioning.md)
-- Boundary: A RAG implementation may call Agentlog at its validated tool/effect boundary, but ingestion is a separate subsystem.
+- Boundary: A RAG implementation may call AIQ at its validated tool/effect boundary, but ingestion is a separate subsystem.
 - Not proved: No retrieval quality or production RAG capability is claimed.
 
 ## Ticket 21: Embeddings
@@ -143,16 +143,16 @@ exactly-once physical execution.
 ## Ticket 22: Chunking
 - Status: `out_of_scope`
 - Levels: `data`
-- Answer: Agentlog has no fixed, overlapping, semantic-boundary, or parent-child chunking implementation.
+- Answer: AIQ has no fixed, overlapping, semantic-boundary, or parent-child chunking implementation.
 - Evidence:
   - [Product boundary](positioning.md)
-- Boundary: Document preparation occurs before an observation reaches Agentlog's validation seam.
+- Boundary: Document preparation occurs before an observation reaches AIQ's validation seam.
 - Not proved: Chunk quality, recall, and context completeness are not evaluated.
 
 ## Ticket 23: Retrieval relevance threshold
 - Status: `partial`
 - Levels: `data`, `metrics`
-- Answer: Application policy can reject or abstain based on a supplied score, but Agentlog does not retrieve candidates or calibrate a relevance threshold.
+- Answer: Application policy can reject or abstain based on a supplied score, but AIQ does not retrieve candidates or calibrate a relevance threshold.
 - Evidence:
   - [Bounded workflow relevance scenario](../tests/test_v04_bounded_workflow_e2e.py)
   - [Eval boundary](evals.md)
@@ -172,7 +172,7 @@ exactly-once physical execution.
 ## Ticket 25: Reranking
 - Status: `out_of_scope`
 - Levels: `data`
-- Answer: Agentlog contains no bi-encoder, cross-encoder, LLM reranker, or reranking relevance gate.
+- Answer: AIQ contains no bi-encoder, cross-encoder, LLM reranker, or reranking relevance gate.
 - Evidence:
   - [Product boundary](positioning.md)
 - Boundary: A reranker can be wrapped as a tool and validated, but its ranking semantics remain external.
@@ -184,16 +184,16 @@ exactly-once physical execution.
 - Answer: The repository does not implement BM25, vector search, RRF, score normalization, or hybrid retrieval.
 - Evidence:
   - [Product boundary](positioning.md)
-- Boundary: Agentlog can durably orchestrate an external search tool but is not the search engine.
+- Boundary: AIQ can durably orchestrate an external search tool but is not the search engine.
 - Not proved: Sparse/dense fusion quality is not established.
 
 ## Ticket 27: RAG evaluation
 - Status: `partial`
 - Levels: `data`, `metrics`
-- Answer: Agentlog has a generic trace-scenario eval framework with comparison and restart evidence, but no retrieval or generation quality metrics.
+- Answer: AIQ has a generic trace-scenario eval framework with comparison and restart evidence, but no retrieval or generation quality metrics.
 - Evidence:
   - [Eval contract](evals.md)
-  - [Eval implementation](../src/agentlog/evals/)
+  - [Eval implementation](../src/aiq/evals/)
   - [Eval tests](../tests/test_evals.py)
 - Boundary: Trace equality, terminal outcomes, and operation identity are not Recall@K, Precision@K, MRR, nDCG, groundedness, or citation accuracy.
 - Not proved: RAG retrieval and answer quality are unmeasured.
@@ -214,11 +214,11 @@ exactly-once physical execution.
 - Levels: `data`, `agent`, `metrics`
 - Answer: `ValidationDecision("abstain")` produces a distinct durable `RunAbstained` terminal outcome when application policy finds insufficient evidence.
 - Evidence:
-  - [Validation decision](../src/agentlog/validation.py)
+  - [Validation decision](../src/aiq/validation.py)
   - [Abstention scenarios](../tests/test_v04_constrained_execution_e2e.py)
-  - [Run report](../src/agentlog/report.py)
+  - [Run report](../src/aiq/report.py)
   - [RunAbstained bounded model](../formal/run_abstained/README.md)
-- Boundary: Agentlog does not perform retrieval and does not calculate false-abstention or unsafe-answer rates. The bounded model checks local routing, not the quality of the application policy.
+- Boundary: AIQ does not perform retrieval and does not calculate false-abstention or unsafe-answer rates. The bounded model checks local routing, not the quality of the application policy.
 - Not proved: Abstention quality on a labelled negative-query dataset is not established.
 
 ## Ticket 30: Prompt injection through retrieved data
@@ -234,9 +234,9 @@ exactly-once physical execution.
 ## Ticket 31: Model Context Protocol
 - Status: `partial`
 - Levels: `artifact`
-- Answer: The optional `MCPTool` adapter performs real official-SDK Streamable HTTP tool calls inside Agentlog's existing durable tool lifecycle.
+- Answer: The optional `MCPTool` adapter performs real official-SDK Streamable HTTP tool calls inside AIQ's existing durable tool lifecycle.
 - Evidence:
-  - [Shipped MCP client adapter](../src/agentlog/mcp.py)
+  - [Shipped MCP client adapter](../src/aiq/mcp.py)
   - [MCP adapter contract](mcp.md)
   - [MCP adapter tests](../tests/test_mcp.py)
   - [Reference chat-to-MCP scenario](reference-chat-agent.md)
@@ -248,12 +248,12 @@ exactly-once physical execution.
 ## Ticket 32: MCP tools, resources, and prompts
 - Status: `partial`
 - Levels: `artifact`
-- Answer: Statically declared tools can execute through the shipped MCP client; MCP resources and prompts are not first-class Agentlog artifacts.
+- Answer: Statically declared tools can execute through the shipped MCP client; MCP resources and prompts are not first-class AIQ artifacts.
 - Evidence:
-  - [Tool types](../src/agentlog/models.py)
+  - [Tool types](../src/aiq/models.py)
   - [MCP adapter contract](mcp.md)
   - [Example MCP server](../examples/local_qaqc/mcp_server.py)
-- Boundary: Agentlog's `ArtifactRef` and instruction templates are not claimed to implement MCP resources or prompts.
+- Boundary: AIQ's `ArtifactRef` and instruction templates are not claimed to implement MCP resources or prompts.
 - Not proved: Dynamic tool discovery and transport of all three MCP artifact classes are absent.
 
 ## Ticket 33: MCP security
@@ -270,7 +270,7 @@ exactly-once physical execution.
 ## Ticket 34: MCP versus REST
 - Status: `out_of_scope`
 - Levels: `artifact`
-- Answer: Agentlog provides an optional FastAPI application boundary and a separate optional MCP Streamable HTTP tool adapter, but no unified REST/MCP abstraction.
+- Answer: AIQ provides an optional FastAPI application boundary and a separate optional MCP Streamable HTTP tool adapter, but no unified REST/MCP abstraction.
 - Evidence:
   - [FastAPI contract](fastapi.md)
   - [MCP adapter contract](mcp.md)
@@ -282,8 +282,8 @@ exactly-once physical execution.
 - Levels: `data`, `artifact`
 - Answer: Generic input/transition/output hooks can structurally and semantically validate an external tool result and commit only a normalized application value.
 - Evidence:
-  - [Validation API](../src/agentlog/validation.py)
-  - [Result validation path](../src/agentlog/model_loop.py)
+  - [Validation API](../src/aiq/validation.py)
+  - [Result validation path](../src/aiq/model_loop.py)
   - [Real MCP lab evidence](../examples/local_qaqc/EVIDENCE.md)
   - [Constrained execution E2E](../tests/test_v04_constrained_execution_e2e.py)
 - Boundary: The validator is application-owned and transport-neutral; there is no MCP-specific schema/tenant/language/freshness/provenance policy.
@@ -294,7 +294,7 @@ exactly-once physical execution.
 - Levels: `artifact`, `workflow`
 - Answer: Runtime events, reducers, reactions, effects, and terminal registrations form an explicit event-driven state machine with durable reconstruction.
 - Evidence:
-  - [Runtime state machine](../src/agentlog/runtime.py)
+  - [Runtime state machine](../src/aiq/runtime.py)
   - [Formal model boundary](../formal/FORMAL_MODEL.md)
   - [Runtime tests](../tests/test_runtime.py)
 - Boundary: The expanded v0.4 control-event vocabulary is scenario/restart tested but not included in one new saturated bounded proof.
@@ -326,7 +326,7 @@ exactly-once physical execution.
 - Levels: `workflow`
 - Answer: `validate_transition` checks an application precondition before tool execution and `validate_output` checks/normalizes the observed result afterward.
 - Evidence:
-  - [Execution policy](../src/agentlog/validation.py)
+  - [Execution policy](../src/aiq/validation.py)
   - [Bounded workflow E2E](../tests/test_v04_bounded_workflow_e2e.py)
 - Boundary: The hooks cover the tool-transition seam, not every arbitrary domain transition.
 - Not proved: Application predicates are not automatically complete or formally correct.
@@ -336,7 +336,7 @@ exactly-once physical execution.
 - Levels: `workflow`
 - Answer: When configured, `goal_satisfied` is checked after the workflow invariant and gates `GoalSatisfied`, `AnswerProduced`, and `RunCompleted`.
 - Evidence:
-  - [Goal gate implementation](../src/agentlog/model_loop.py)
+  - [Goal gate implementation](../src/aiq/model_loop.py)
   - [Goal-gate scenarios](../tests/test_v04_constrained_execution_e2e.py)
   - [Completion-gate bounded model](../formal/completion_gate/README.md)
   - [Runtime mutants](../formal/model/verify_v04_runtime_mutants.py)
@@ -348,7 +348,7 @@ exactly-once physical execution.
 - Levels: `agent`, `workflow`, `metrics`
 - Answer: `ModelLoopLimits` bounds model steps, tool calls, and repeated state visits; terminal events make exhaustion observable and `RunReport` derives counts/flags. A standalone bounded model independently checks the guard's own safety properties with `WorkflowCycleDetected` non-vacuously reachable and two killed targeted mutants.
 - Evidence:
-  - [Limits and cycle guard](../src/agentlog/model_loop.py)
+  - [Limits and cycle guard](../src/aiq/model_loop.py)
   - [Constrained execution tests](../tests/test_v04_constrained_execution_e2e.py)
   - [Run report tests](../tests/test_run_report.py)
   - [Cycle-guard bounded model](../formal/cycle_guard/README.md)
@@ -360,7 +360,7 @@ exactly-once physical execution.
 - Levels: `agent`, `workflow`
 - Answer: `ValidationDecision` durably distinguishes accept, reject, retry, replan, abstain, and fail; abstain/fail have distinct terminal handling that is independently checked in a standalone bounded model, while retry and replan currently share the same next-model-turn transition with different recorded status.
 - Evidence:
-  - [Decision type](../src/agentlog/validation.py)
+  - [Decision type](../src/aiq/validation.py)
   - [Decision-path tests](../tests/test_v04_constrained_execution_e2e.py)
   - [RunAbstained bounded model](../formal/run_abstained/README.md)
 - Boundary: The runtime preserves retry/replan intent as evidence but does not yet model them as different workflow states; neither means automatic safe repetition of a physical external effect. The local bounded model begins after validation failure is committed and does not prove policy correctness or runtime refinement.
@@ -371,7 +371,7 @@ exactly-once physical execution.
 - Levels: `artifact`
 - Answer: Effects and dispatchers are asynchronous, reactions/reducers are synchronous and side-effect free, and persisted events define the serialization boundary.
 - Evidence:
-  - [Runtime effects](../src/agentlog/runtime.py)
+  - [Runtime effects](../src/aiq/runtime.py)
   - [FastAPI lifecycle](fastapi.md)
   - [Lifecycle tests](../tests/test_fastapi_lifecycle.py)
 - Boundary: Cancellation, per-effect timeout, and cross-process object transport are not a complete generic async framework.
@@ -382,7 +382,7 @@ exactly-once physical execution.
 - Levels: `artifact`
 - Answer: The optional FastAPI integration exposes typed request/response boundaries, lifecycle ownership, SSE replay, and a health endpoint with contract tests.
 - Evidence:
-  - [FastAPI integration](../src/agentlog/fastapi.py)
+  - [FastAPI integration](../src/aiq/fastapi.py)
   - [Embedding contract tests](../tests/test_fastapi_embedding_contract.py)
   - [FastAPI documentation](fastapi.md)
 - Boundary: FastAPI remains an optional adapter and does not redefine the event log as HTTP state.
@@ -391,22 +391,29 @@ exactly-once physical execution.
 ## Ticket 45: Idempotency and durable execution
 - Status: `partial`
 - Levels: `workflow`, `metrics`
-- Answer: A durable request has a stable `operation_id`; dispatcher result/checkpoint commit is atomic, and an opt-in append-only operational ledger records imminent handler dispatch attempts across restarts with that identity.
+- Answer: A durable request has a stable `operation_id`; opt-in same-file
+  SQLite leases add atomic terminal/committed admission, claim+attempt,
+  pre-handler ownership confirmation, DB-time renewal, fresh lease IDs,
+  monotonic fencing, takeover, and stale-commit rejection.
 - Evidence:
   - [Effect semantics](effects.md)
-  - [Attempt ledger](../src/agentlog/attempts.py)
+  - [Attempt ledger](../src/aiq/attempts.py)
   - [Attempt ledger tests](../tests/test_effect_attempts.py)
+  - [Lease/fencing implementation tests](../tests/test_effect_leases.py)
+  - [Lease bounded model](../formal/lease_gate/)
+  - [Lease runtime mutation gate](../formal/lease_gate/verify_runtime_mutants.py)
+  - [Lease stress/soak tests](../tests/test_effect_lease_stress.py)
   - [Crash-window model](../formal/crash_window/)
   - [Crash-window equivalence tests](../tests/test_crash_window_equivalence.py)
-- Boundary: Agentlog guarantees at-most-one committed result per request, not exactly-once physical execution or provider-side deduplication. A durable dispatch-attempt record precedes handler entry and therefore may overcount if the process dies in that boundary.
-- Not proved: Exact downstream calls, provider dedup hits, subscription replay counts, and external outcomes are not observable from the ledger.
+- Boundary: Fencing establishes one DB-valid owner and rejects stale durable commits on one shared SQLite backend. It does not guarantee exactly-once physical execution or prevent an old handler overlapping a takeover after expiry.
+- Not proved: Exact downstream calls, provider dedup hits, scheduler/heartbeat liveness, cross-database ownership, and external outcomes are not observable from the ledger.
 
 ## Ticket 46: Event sourcing and transactional outbox
 - Status: `partial`
 - Levels: `artifact`, `workflow`, `metrics`
 - Answer: Immutable events are the source of truth and state is reconstructed by fold; subscription checkpoints support durable processing.
 - Evidence:
-  - [Event core](../src/agentlog/core.py)
+  - [Event core](../src/aiq/core.py)
   - [Formal event model](../formal/FORMAL_MODEL.md)
   - [SQLite event store tests](../tests/test_sqlite.py)
 - Boundary: There is no transactional outbox message model, broker publisher, DLQ, or delivery-lag metrics.
@@ -415,12 +422,18 @@ exactly-once physical execution.
 ## Ticket 47: Production deployment and observability
 - Status: `partial`
 - Levels: `metrics`
-- Answer: Agentlog exports causal domain traces, replayable SSE, health state, eval summaries, a derived run report, and optional operation-ID-correlated durable dispatch-attempt aggregates.
+- Answer: AIQ exports causal domain traces, replayable SSE, health state,
+  eval summaries, a derived run report, durable dispatch attempts, and an
+  append-only SQLite ledger for claim/busy/expiry/renewal/takeover/stale lease
+  facts correlated by operation, worker, lease ID, token, and attempt.
 - Evidence:
-  - [Causal trace](../src/agentlog/trace.py)
+  - [Causal trace](../src/aiq/trace.py)
   - [Flow X-Ray contract](flow-xray.md)
-  - [Run report](../src/agentlog/report.py)
+  - [Run report](../src/aiq/report.py)
   - [Run report tests](../tests/test_run_report.py)
-- Boundary: Attempt telemetry is an opt-in SQLite/in-memory operational ledger, not OpenTelemetry or a Prometheus exporter. The package still has no SLOs, alerts, dashboards, HPA/deployment manifests, or rollout playbook.
+- Boundary: Attempt and lease telemetry are operational SQLite/in-memory facts
+  with package-internal lease queries, not a stable public observability API,
+  OpenTelemetry, or Prometheus exporter. The package still has no SLOs,
+  alerts, dashboards, HPA/deployment manifests, or rollout playbook.
 - Not proved: Domain-event causality is not an end-to-end distributed production trace or quality-monitoring stack.
 

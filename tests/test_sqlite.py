@@ -9,7 +9,7 @@ from contextlib import closing
 from pathlib import Path
 from uuid import uuid4
 
-from agentlog import (
+from aiq import (
     CheckpointConflictError,
     DuplicateEventError,
     Event,
@@ -55,7 +55,7 @@ class SQLiteEventStoreTests(unittest.TestCase):
 import asyncio
 import os
 import sys
-from agentlog import Event, SQLiteEventStore
+from aiq import Event, SQLiteEventStore
 
 async def write():
     store = await SQLiteEventStore.open(sys.argv[1])

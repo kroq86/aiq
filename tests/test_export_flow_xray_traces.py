@@ -148,8 +148,8 @@ class GeneratorCliTests(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
 
-            completed_path = output_dir / "agentlog-completed-domain-event-history-v1.json"
-            active_path = output_dir / "agentlog-active-domain-event-history-v1.json"
+            completed_path = output_dir / "aiq-completed-domain-event-history-v1.json"
+            active_path = output_dir / "aiq-active-domain-event-history-v1.json"
             self.assertTrue(completed_path.exists())
             self.assertTrue(active_path.exists())
 

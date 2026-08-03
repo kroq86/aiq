@@ -9,9 +9,9 @@
 Технологии новые, а неопределённость прежняя: действие уже могло произойти, процесс мог умереть, наблюдение могло не сохраниться, но системе всё равно нужно определить, что считать фактом и что допустимо дальше.
 Ненадёжный компонент — это большая языковая модель. Среда — программные интерфейсы, MCP-серверы, базы данных и объектные хранилища.
 
-Я решил не ограничиваться исторической аналогией и собрал работающий эксперимент. Так появился [Agentlog](https://github.com/kroq86/agentlog) — основанная на событиях среда исполнения для durable-агентов на Python.
+Я решил не ограничиваться исторической аналогией и собрал работающий эксперимент. Так появился [AIQ](https://github.com/kroq86/aiq) — основанная на событиях среда исполнения для durable-агентов на Python.
 
-> Agentlog — durable runtime для bounded AI workflows, а не RAG- или MCP-платформа.
+> AIQ — durable runtime для bounded AI workflows, а не RAG- или MCP-платформа.
 
 Один пример границы, которую он реально проверяет (`examples/bounded_corporate_agent/`, `docs/model-loop.md`):
 
@@ -27,7 +27,8 @@ bounded model/provider
 
 ### Текущая метка
 
-> **Single-worker durable guarded execution framework candidate.**
+> **Durable guarded execution framework candidate with opt-in SQLite
+> lease/fencing.**
 
 - Подходит для controlled single-worker pilot — один effect-воркер на run,
   без координации между несколькими воркерами.
@@ -36,13 +37,17 @@ bounded model/provider
   bounded/scenario-проверенное свойство (crash-window модель плюс отдельные
   восстановленные сценарии против реальных Ollama/MCP-крашей), а не
   exactly-once физическое исполнение.
-- Multi-worker safety пока не заявляется.
-- `EffectDispatchAttempt`/attempt ledger (`src/agentlog/attempts.py`) — это
-  фундамент для будущего lease/claim protocol, а не сам lease protocol;
-  несколько воркеров сейчас могут легитимно создать несколько физических
-  попыток для одной операции.
-- `RunAbstained` bounded model и attempt-telemetry сейчас в `## Unreleased` в
-  `CHANGELOG.md`, а не в выпущенной `0.4.2`.
+- Multi-worker effect ownership доступен только как opt-in режим для workers,
+  использующих один SQLite-файл и один canonical subscription. Atomic claim
+  создаёт отдельный lease ID, записывает attempt, heartbeat продлевает DB-time
+  lease без смены token, pre-handler confirmation повторно проверяет ownership,
+  а fenced commit запрещает stale worker записать output или checkpoint.
+- Append-only lease-observation ledger сохраняет acquired/busy/expiry/renewal/
+  takeover/stale facts. Из lease API top-level публичен только
+  `EffectLeaseOptions`; handles, protocols и observation records internal.
+- Lease не обеспечивает exactly-once physical execution: после expiry старый
+  handler может ещё выполнять внешний I/O, поэтому `operation_id` и downstream
+  idempotency остаются обязательными.
 - Пять control event types (`GoalSatisfied`/`GoalNotSatisfied`/
   `WorkflowInvariantViolated`/`WorkflowCycleDetected`/`RunAbstained`) покрыты
   отдельными bounded-моделями с невакуозными witness'ами и targeted mutants;
@@ -161,7 +166,7 @@ bounded model/provider
 
 Вызов модели, вызов инструмента и дочерний запуск не становятся одинаковыми. Они используют одну грамматику перехода, но подставляют разные типы запросов, исходов, идентичностей и ограничений. Артефакт соединяется с этой грамматикой слабее: у него нет собственного сохраняемого события запроса, но он добавляет отдельную модель идентичности содержимого к результату операции.
 
-Наивное описание требует удерживать произведение состояний подсистем. Факторизованное описание требует удерживать набор типов, переходов, инвариантов и правил композиции. Agentlog не уменьшает физическое пространство возможных сбоев. Он уменьшает число независимых правил, которыми это пространство приходится описывать.
+Наивное описание требует удерживать произведение состояний подсистем. Факторизованное описание требует удерживать набор типов, переходов, инвариантов и правил композиции. AIQ не уменьшает физическое пространство возможных сбоев. Он уменьшает число независимых правил, которыми это пространство приходится описывать.
 
 > Сложность системы остаётся комбинаторной. Некомбинаторным становится её описание.
 
@@ -205,7 +210,7 @@ H_t
 
 > Координаты задают положение события. История задаёт принятую траекторию. Инварианты ограничивают не только точки, но и допустимые пути между ними.
 
-Agentlog факторизует не только пространство состояний, но и описание эволюции системы во времени.
+AIQ факторизует не только пространство состояний, но и описание эволюции системы во времени.
 
 ## Одна операционная семантика
 
@@ -236,7 +241,7 @@ S = восстановить(D, H)
 G(S, p) → Отклонить(f) | Принять(q)
 ```
 
-Здесь `G` обозначает совокупность проверок протокола, а не отдельный публичный класс Agentlog.
+Здесь `G` обозначает совокупность проверок протокола, а не отдельный публичный класс AIQ.
 
 `q` — ещё не внешний вызов, а неизменяемый запрос: содержимое, `operation_id`, причинность и идентичность. Принятый запрос сначала попадает в историю:
 
@@ -278,7 +283,7 @@ S' = восстановить(D, H2)
 
 Эта цепочка задаёт только временной скелет. Полное положение события определяется координатами, введёнными выше: типом, идентичностью, статусом фиксации, порядками и правилом восстановления.
 
-Это несущая конструкция Agentlog. Остальные механизмы не добавляют новые оси — они уточняют типы `q`, `E` и `c`.
+Это несущая конструкция AIQ. Остальные механизмы не добавляют новые оси — они уточняют типы `q`, `E` и `c`.
 
 У этой конструкции одновременно три разных порядка, и смешивать их нельзя.
 
@@ -437,12 +442,13 @@ operation_id(Повтор(q)) = operation_id(q)
 
 Поэтому гарантия строится не вокруг фантазии о выполнении «ровно один раз», а вокруг асимметрии двух контуров. Операционный контур допускает повтор, потому что среда могла принять запрос без подтверждения. Контур фиксации запрещает раздвоение принятого результата, потому что два итоговых наблюдения с одной идентичностью сделали бы дальнейшее состояние неоднозначным. Идемпотентность внешнего переходника уменьшает цену повтора, но не заменяет эту границу и не превращает физическое исполнение в транзакцию `EventStore`.
 
-Поддерживаемое deployment assumption без внешней координации — один активный
-effect worker на canonical subscription версии агента. Несколько workers могут
-одновременно начать один handler до продвижения общего checkpoint и тем самым
-повторить внешний effect. Для multi-worker single-flight нужен внешний
-lease/fencing protocol; стабильный `operation_id` и downstream idempotency при
-этом всё равно обязательны.
+По умолчанию поддерживается один активный effect worker на canonical
+subscription версии агента. Несколько workers разрешены только при явной
+настройке `EffectLeaseOptions` и общем `SQLiteEventStore`: claim и attempt
+фиксируются одной транзакцией, terminal/committed admission проверяется
+атомарно, fencing token растёт при takeover, а output/checkpoint принимаются
+только от текущего DB-valid owner. Это не отменяет crash window, физические
+повторы или требование downstream idempotency.
 
 Для `save_report` первая попытка может выполнить запись в MinIO и завершиться до регистрации в SQLite. Новая среда исполнения повторяет операцию с детерминированным ключом объекта, проверяет точную версию, идемпотентно регистрирует ту же `ArtifactRef` и фиксирует один результат. Рабочий журнал вызовов при этом обязан сохранить обе попытки.
 
@@ -482,7 +488,7 @@ lease/fencing protocol; стабильный `operation_id` и downstream idempo
 
 ОГАС здесь полезна не как готовая архитектура, а как напоминание: изменение информационного контура меняет распределение контроля.
 
-Agentlog 0.3 эту модель управления полностью не реализует: авторизация для промышленной эксплуатации, утверждение человеком и распределённое владение полномочиями остаются вне текущей границы.
+AIQ 0.3 эту модель управления полностью не реализует: авторизация для промышленной эксплуатации, утверждение человеком и распределённое владение полномочиями остаются вне текущей границы.
 
 ## Что именно проверено
 
@@ -524,7 +530,7 @@ Agentlog 0.3 эту модель управления полностью не р
   Не устанавливает безусловную живучесть.
 ```
 
-Результат для Agentlog 0.3:
+Результат для AIQ 0.3:
 
 ```text
 тесты реализации:                  262 всего / 261 пройден / 1 пропущен
@@ -551,7 +557,7 @@ Agentlog 0.3 эту модель управления полностью не р
 - обнаружение 47 намеренно внесённых изменений семантики;
 - соответствие выбранных трасс исполнения моделям.
 
-## Что реализовано в Agentlog 0.3
+## Что реализовано в AIQ 0.3
 
 Одна система переходов получила несколько исполняемых проекций и связанную модель идентичности артефактов:
 
@@ -609,36 +615,36 @@ PYTHONPATH=src python3 examples/chat_mcp_agent/main.py
 
 ```text
 основной интерфейс:
-  agentlog.Agent
-  agentlog.Event
-  agentlog.EventStore
-  agentlog.SQLiteEventStore
-  agentlog.InMemoryEventStore
-  agentlog.fastapi.AgentlogApplication
+  aiq.Agent
+  aiq.Event
+  aiq.EventStore
+  aiq.SQLiteEventStore
+  aiq.InMemoryEventStore
+  aiq.fastapi.AIQApplication
 
 расширенная среда исполнения:
-  agentlog.AgentDefinition
-  agentlog.DurableDispatcher
-  agentlog.DurableEffectDispatcher
-  agentlog.EffectRegistry
-  agentlog.EffectContext
-  agentlog.effect_request
-  agentlog.InMemoryEffectAttemptStore
-  agentlog.SQLiteEffectAttemptStore
-  agentlog.build_effect_attempt_metrics
-  agentlog.TraceService
-  agentlog.build_causal_trace
-  agentlog.build_run_report
-  agentlog.trace_to_json
-  agentlog.MCPTool
+  aiq.AgentDefinition
+  aiq.DurableDispatcher
+  aiq.DurableEffectDispatcher
+  aiq.EffectRegistry
+  aiq.EffectContext
+  aiq.effect_request
+  aiq.InMemoryEffectAttemptStore
+  aiq.SQLiteEffectAttemptStore
+  aiq.build_effect_attempt_metrics
+  aiq.TraceService
+  aiq.build_causal_trace
+  aiq.build_run_report
+  aiq.trace_to_json
+  aiq.MCPTool
 
 расширенное встраивание FastAPI:
-  agentlog.fastapi.Agentlog
+  aiq.fastapi.AIQ
 ```
 
-`AgentlogApplication` — декларативный фасад. `agentlog.fastapi.Agentlog` — поддерживаемый низкоуровневый интерфейс встраивания. Команда `import agentlog` не импортирует FastAPI.
+`AIQApplication` — декларативный фасад. `aiq.fastapi.AIQ` — поддерживаемый низкоуровневый интерфейс встраивания. Команда `import aiq` не импортирует FastAPI.
 
-Это основные точки входа, используемые в документации и примерах Agentlog 0.3, а не полный перечень всех имён, экспортируемых через `agentlog.__all__`.
+Это основные точки входа, используемые в документации и примерах AIQ 0.3, а не полный перечень всех имён, экспортируемых через `aiq.__all__`.
 
 </details>
 
@@ -667,4 +673,4 @@ PYTHONPATH=src python3 examples/chat_mcp_agent/main.py
 
 Инварианты репозитория и порядок внесения изменений: [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Agentlog распространяется по [лицензии Apache 2.0](LICENSE).
+AIQ распространяется по [лицензии Apache 2.0](LICENSE).

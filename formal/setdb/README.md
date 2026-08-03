@@ -1,4 +1,4 @@
-# Agentlog 0.2 bounded FASM + setdb model
+# AIQ 0.2 bounded FASM + setdb model
 
 The proof path contains no Python. FASM builds the reachable state graph from
 one zero state by applying all eleven actions, structurally deduplicates packed
@@ -89,6 +89,6 @@ separate finite abstraction.
 
 The result proves the eight properties for every state reachable in this
 single-run abstract transition system with history length at most ten. It does
-not prove arbitrary Agentlog definitions, multi-run/global-position scheduling,
+not prove arbitrary AIQ definitions, multi-run/global-position scheduling,
 external system correctness, multi-process storage concurrency, or refinement
 of the Python runtime. Those require separate models or refinement checks.

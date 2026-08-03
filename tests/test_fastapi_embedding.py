@@ -2,7 +2,7 @@
 and tests/test_fastapi_embedding_contract.py (isolation/lifecycle/prefix).
 
 This file focuses on what those don't cover: unrelated host routes
-continuing to work, host-cleanup-survives-Agentlog-shutdown-failure,
+continuing to work, host-cleanup-survives-AIQ-shutdown-failure,
 SSE/trace/state through an *embedded* router (not just create_app's own
 app), and double-mounting one router under two prefixes.
 """
@@ -32,7 +32,7 @@ with warnings.catch_warnings():
     )
     from fastapi.testclient import TestClient
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     EffectContext,
     EffectRegistry,
@@ -40,8 +40,8 @@ from agentlog import (
     InMemoryEventStore,
     effect_request,
 )
-from agentlog.fastapi import Agentlog, AgentRuntime, compose_lifespans
-from agentlog.http import create_app
+from aiq.fastapi import AIQ, AgentRuntime, compose_lifespans
+from aiq.http import create_app
 
 
 @dataclass(frozen=True)
@@ -122,8 +122,8 @@ def build_idle_agent() -> AgentDefinition[ChatState]:
     return agent
 
 
-def make_integration() -> Agentlog:
-    return Agentlog(
+def make_integration() -> AIQ:
+    return AIQ(
         store=InMemoryEventStore(),
         runtimes={
             "energy-assistant": AgentRuntime(
@@ -159,8 +159,8 @@ def collect_sse_events(response, *, stop_at: str | None = None) -> list[tuple[in
 
 class UnrelatedHostRoutesTests(unittest.TestCase):
     def test_host_routes_continue_working_alongside_embedded_router(self) -> None:
-        """Requirement 4: the host app owns routes Agentlog knows nothing
-        about, and mounting Agentlog must not disturb them."""
+        """Requirement 4: the host app owns routes AIQ knows nothing
+        about, and mounting AIQ must not disturb them."""
         integration = make_integration()
         app = FastAPI(lifespan=integration.lifespan)
 
@@ -174,7 +174,7 @@ class UnrelatedHostRoutesTests(unittest.TestCase):
             self.assertEqual(client.get("/health").json(), {"status": "ok"})
             response = client.post("/api/agents/energy-assistant/runs")
             self.assertEqual(response.status_code, 200)
-            # And the host route still works after Agentlog handled a request.
+            # And the host route still works after AIQ handled a request.
             self.assertEqual(client.get("/health").json(), {"status": "ok"})
 
 
@@ -327,11 +327,11 @@ class EmbeddedRunLifecycleTests(unittest.TestCase):
 class InitAndRepeatedStopTests(unittest.IsolatedAsyncioTestCase):
     async def test_init_starts_no_background_task(self) -> None:
         """Requirement 6, checked explicitly before any lifespan/start call."""
-        integration = Agentlog(store=InMemoryEventStore(), runtimes={})
+        integration = AIQ(store=InMemoryEventStore(), runtimes={})
         self.assertIsNone(integration._task)
 
     async def test_repeated_stop_is_safe(self) -> None:
-        integration = Agentlog(
+        integration = AIQ(
             store=InMemoryEventStore(), runtimes={}, poll_interval_seconds=60
         )
         await integration.start()
@@ -353,10 +353,10 @@ class InitAndRepeatedStopTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(integration._task)
 
 
-class HostCleanupSurvivesAgentlogFailureTests(unittest.IsolatedAsyncioTestCase):
-    async def test_host_cleanup_runs_even_if_agentlog_shutdown_raises(self) -> None:
+class HostCleanupSurvivesAIQFailureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_host_cleanup_runs_even_if_aiq_shutdown_raises(self) -> None:
         """Requirement 12: AsyncExitStack-based composition must still run
-        the host's cleanup even when Agentlog's own shutdown raises."""
+        the host's cleanup even when AIQ's own shutdown raises."""
         events: list[str] = []
 
         @asynccontextmanager
@@ -368,16 +368,16 @@ class HostCleanupSurvivesAgentlogFailureTests(unittest.IsolatedAsyncioTestCase):
                 events.append("host-stop")
 
         @asynccontextmanager
-        async def failing_agentlog_lifespan(app: FastAPI):
-            events.append("agentlog-start")
+        async def failing_aiq_lifespan(app: FastAPI):
+            events.append("aiq-start")
             try:
                 yield
             finally:
-                events.append("agentlog-stop")
+                events.append("aiq-stop")
                 raise RuntimeError("simulated shutdown failure")
 
         app = FastAPI()
-        lifespan = compose_lifespans(host_lifespan, failing_agentlog_lifespan)
+        lifespan = compose_lifespans(host_lifespan, failing_aiq_lifespan)
 
         with self.assertRaisesRegex(RuntimeError, "simulated shutdown failure"):
             async with lifespan(app):
@@ -385,15 +385,15 @@ class HostCleanupSurvivesAgentlogFailureTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             events,
-            ["host-start", "agentlog-start", "request-window", "agentlog-stop", "host-stop"],
+            ["host-start", "aiq-start", "request-window", "aiq-stop", "host-stop"],
         )
 
 
 class RouteEquivalenceTests(unittest.TestCase):
-    def test_create_app_and_embedded_agentlog_behave_equivalently(self) -> None:
+    def test_create_app_and_embedded_aiq_behave_equivalently(self) -> None:
         """Requirement 21: same request against both styles, same result
         (modulo run_id), since both go through the one canonical
-        implementation in agentlog.fastapi. The canonical `POST /runs` is
+        implementation in aiq.fastapi. The canonical `POST /runs` is
         generic (RunCreated only) in both hosting styles -- `create_app`'s
         extra `/runs/chat` compatibility endpoint is deliberately not part
         of this equivalence, since it only exists on `create_app`'s app."""

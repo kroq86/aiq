@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from agentlog import EventEnvelope
+from aiq import EventEnvelope
 
 from .reference import NormalizedEvent
 

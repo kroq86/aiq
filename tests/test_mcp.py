@@ -13,7 +13,7 @@ except ImportError as error:  # pragma: no cover - optional test dependency
         "MCP adapter tests require the 'mcp' extra: pip install -e '.[mcp,test]'"
     ) from error
 
-from agentlog import MCPTool, ToolDefinition, ToolExecutionFailed, ToolRegistry
+from aiq import MCPTool, ToolDefinition, ToolExecutionFailed, ToolRegistry
 
 
 def definition() -> ToolDefinition:
@@ -105,9 +105,9 @@ class MCPToolTests(unittest.IsolatedAsyncioTestCase):
             operation_id_argument=operation_id_argument,
         )
         with (
-            patch("agentlog.mcp.httpx.AsyncClient", FakeHTTPClient),
-            patch("agentlog.mcp.streamable_http_client", fake_transport),
-            patch("agentlog.mcp.ClientSession", FakeSession),
+            patch("aiq.mcp.httpx.AsyncClient", FakeHTTPClient),
+            patch("aiq.mcp.streamable_http_client", fake_transport),
+            patch("aiq.mcp.ClientSession", FakeSession),
         ):
             value = await tool.execute(
                 {"value": ("one", "two")},
@@ -192,8 +192,8 @@ class MCPToolTests(unittest.IsolatedAsyncioTestCase):
 
         tool = MCPTool(definition(), url="http://mcp.example/mcp")
         with (
-            patch("agentlog.mcp.httpx.AsyncClient", FakeHTTPClient),
-            patch("agentlog.mcp.streamable_http_client", failing_transport),
+            patch("aiq.mcp.httpx.AsyncClient", FakeHTTPClient),
+            patch("aiq.mcp.streamable_http_client", failing_transport),
             self.assertRaisesRegex(ToolExecutionFailed, "connection refused"),
         ):
             await tool.execute({"value": ()}, operation_id="operation-1")
@@ -227,12 +227,12 @@ def deny_mcp(name, globals=None, locals=None, fromlist=(), level=0):
         raise ImportError("blocked MCP dependency")
     return real_import(name, globals, locals, fromlist, level)
 builtins.__import__ = deny_mcp
-import agentlog
-assert agentlog.Event
+import aiq
+assert aiq.Event
 try:
-    agentlog.MCPTool
+    aiq.MCPTool
 except ImportError as error:
-    assert "agentlog[mcp]" in str(error)
+    assert "aiq[mcp]" in str(error)
 else:
     raise AssertionError("MCPTool import unexpectedly succeeded")
 """

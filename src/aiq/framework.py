@@ -1,13 +1,13 @@
-"""Declarative framework API on top of the existing Agentlog core.
+"""Declarative framework API on top of the existing AIQ core.
 
 `Agent` lets a host declare event types, reducers, reactions, effects and
 commands without hand-assembling `AgentDefinition`, `EffectRegistry` and
 `EffectContext`. `Agent.build_runtime()` compiles the declaration into
 exactly those existing classes -- this module is not a second execution
 engine, it is a builder for the one that already exists in
-`agentlog.runtime`.
+`aiq.runtime`.
 
-    from agentlog.framework import Agent
+    from aiq.framework import Agent
 
     agent = Agent(name="assistant", initial_state=ChatState())
 
@@ -31,8 +31,8 @@ engine, it is a builder for the one that already exists in
 
     runtime = agent.build_runtime(context=context)
 
-`runtime` is a plain `agentlog.application.AgentRuntime` -- pass it into
-`Agentlog(store=store, runtimes={agent.name: runtime})` exactly as if it
+`runtime` is a plain `aiq.application.AgentRuntime` -- pass it into
+`AIQ(store=store, runtimes={agent.name: runtime})` exactly as if it
 had been hand-assembled.
 """
 
@@ -347,7 +347,7 @@ class Agent:
     # -- compilation ----------------------------------------------------
 
     def build_runtime(self, *, context: object = None) -> AgentRuntime:
-        """Compile this declaration into a plain `agentlog.application.AgentRuntime`,
+        """Compile this declaration into a plain `aiq.application.AgentRuntime`,
         using the existing `AgentDefinition`/`EffectRegistry`/`EffectContext`
         as the one and only execution path."""
         for validate_resources in self._resource_validators:

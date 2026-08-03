@@ -3,8 +3,8 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 
-from agentlog.evals import EvalCase, EvalReport, EvalRunner, compare_reports
-from agentlog.trace import CausalTrace, TraceEvent
+from aiq.evals import EvalCase, EvalReport, EvalRunner, compare_reports
+from aiq.trace import CausalTrace, TraceEvent
 
 
 def event(
@@ -61,7 +61,7 @@ def report(
         }
     )
     result = __import__("asyncio").run(EvalRunner(lambda _: _return(actual)).run_case(case))
-    from agentlog.evals.runner import EvalRunResult
+    from aiq.evals.runner import EvalRunResult
 
     return EvalReport.from_result(dataset, EvalRunResult((result,)))
 

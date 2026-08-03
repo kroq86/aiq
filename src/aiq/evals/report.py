@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from agentlog.trace import CausalTrace, TraceEvent
+from aiq.trace import CausalTrace, TraceEvent
 
 from .assertions import AssertionFailure
 from .runner import EvalRunResult

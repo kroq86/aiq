@@ -7,13 +7,15 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
+    CheckpointConflictError,
     DefinitionMismatchError,
     DuplicateEventError,
     DurableDispatcher,
     DurableEffectDispatcher,
     EffectContext,
+    EffectLeaseOptions,
     EffectRegistry,
     Event,
     EventEnvelope,
@@ -1196,15 +1198,229 @@ class DurableEffectDispatcherTests(unittest.TestCase):
             ],
         )
 
+    def test_lease_mode_rejects_separate_attempt_store_at_construction(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ValueError, "attempt_store"):
+            DurableEffectDispatcher(
+                agent=build_chat_agent(),
+                store=InMemoryEventStore(),
+                effects=EffectRegistry(),
+                context=EffectContext({}),
+                subscription_name="effects",
+                attempt_store=InMemoryEffectAttemptStore(),
+                lease_options=EffectLeaseOptions("worker-a"),
+            )
+
+    def test_busy_peer_does_not_invoke_or_advance_checkpoint(self) -> None:
+        async def scenario() -> None:
+            store = InMemoryEventStore()
+            agent = build_chat_agent()
+            effects = EffectRegistry[ChatState]()
+            entered = asyncio.Event()
+            release = asyncio.Event()
+            handler_calls = 0
+
+            @effects.effect("ModelCallRequested")
+            async def call_model(event, state, context):
+                nonlocal handler_calls
+                handler_calls += 1
+                entered.set()
+                await release.wait()
+                return [Event("ModelCallSucceeded", {})]
+
+            await store.append(
+                "run-1",
+                -1,
+                [effect_request("ModelCallRequested", {})],
+            )
+            first = DurableEffectDispatcher(
+                agent=agent,
+                store=store,
+                effects=effects,
+                context=EffectContext({}),
+                subscription_name="effects",
+                owns_stream=own_all_streams,
+                lease_options=EffectLeaseOptions(
+                    "worker-a",
+                    ttl_seconds=1,
+                    renewal_interval_seconds=0.1,
+                ),
+            )
+            second = DurableEffectDispatcher(
+                agent=agent,
+                store=store,
+                effects=effects,
+                context=EffectContext({}),
+                subscription_name="effects",
+                owns_stream=own_all_streams,
+                lease_options=EffectLeaseOptions(
+                    "worker-b",
+                    ttl_seconds=1,
+                    renewal_interval_seconds=0.1,
+                ),
+            )
+
+            first_task = asyncio.create_task(first.run_once())
+            await entered.wait()
+            self.assertIs(await second.run_once(), False)
+            self.assertEqual(await store.load_checkpoint("effects"), 0)
+            self.assertEqual(handler_calls, 1)
+            release.set()
+            self.assertIs(await first_task, True)
+            self.assertEqual(await store.load_checkpoint("effects"), 1)
+
+        run(scenario())
+
+    def test_cancelled_handler_releases_claim_for_peer(self) -> None:
+        async def scenario() -> None:
+            store = InMemoryEventStore()
+            agent = build_chat_agent()
+            entered = asyncio.Event()
+            blocking_effects = EffectRegistry[ChatState]()
+
+            @blocking_effects.effect("ModelCallRequested")
+            async def block(event, state, context):
+                entered.set()
+                await asyncio.Event().wait()
+                return []
+
+            request = effect_request("ModelCallRequested", {})
+            await store.append("run-1", -1, [request])
+            first = DurableEffectDispatcher(
+                agent=agent,
+                store=store,
+                effects=blocking_effects,
+                context=EffectContext({}),
+                subscription_name="effects",
+                owns_stream=own_all_streams,
+                lease_options=EffectLeaseOptions(
+                    "worker-a",
+                    ttl_seconds=1,
+                    renewal_interval_seconds=0.1,
+                ),
+            )
+            task = asyncio.create_task(first.run_once())
+            await entered.wait()
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+
+            peer_effects = EffectRegistry[ChatState]()
+
+            @peer_effects.effect("ModelCallRequested")
+            async def complete(event, state, context):
+                return [Event("ModelCallSucceeded", {})]
+
+            peer = DurableEffectDispatcher(
+                agent=agent,
+                store=store,
+                effects=peer_effects,
+                context=EffectContext({}),
+                subscription_name="effects",
+                owns_stream=own_all_streams,
+                lease_options=EffectLeaseOptions(
+                    "worker-b",
+                    ttl_seconds=1,
+                    renewal_interval_seconds=0.1,
+                ),
+            )
+            self.assertIs(await peer.run_once(), True)
+            self.assertEqual(await store.load_checkpoint("effects"), 1)
+            attempts = await store.load_effect_attempts_for_stream("run-1")
+            self.assertEqual(
+                [attempt.attempt_number for attempt in attempts], [1, 2]
+            )
+
+        run(scenario())
+
+    def test_peer_checkpoint_progress_during_claim_is_not_unhealthy(
+        self,
+    ) -> None:
+        class PeerCompletedStore(InMemoryEventStore):
+            async def try_claim_effect(self, **kwargs):
+                raise CheckpointConflictError("peer advanced")
+
+        store = PeerCompletedStore()
+        request = effect_request("ModelCallRequested", {})
+        run(store.append("run-1", -1, [request]))
+        calls = 0
+        effects = EffectRegistry[ChatState]()
+
+        @effects.effect("ModelCallRequested")
+        async def call_model(event, state, context):
+            nonlocal calls
+            calls += 1
+            return []
+
+        worker = DurableEffectDispatcher(
+            agent=build_chat_agent(),
+            store=store,
+            effects=effects,
+            context=EffectContext({}),
+            subscription_name="effects",
+            owns_stream=own_all_streams,
+            lease_options=EffectLeaseOptions("worker-b"),
+        )
+        self.assertIs(run(worker.run_once()), True)
+        self.assertEqual(calls, 0)
+
+    def test_terminal_between_claim_and_confirmation_blocks_handler(
+        self,
+    ) -> None:
+        class TerminalBeforeConfirmStore(InMemoryEventStore):
+            async def confirm_effect_claim(
+                self, lease, *, terminal_event_types
+            ):
+                version = await self.current_version(lease.stream_id)
+                await self.append(
+                    lease.stream_id,
+                    version,
+                    [Event("RunCompleted", {})],
+                )
+                return await super().confirm_effect_claim(
+                    lease,
+                    terminal_event_types=terminal_event_types,
+                )
+
+        store = TerminalBeforeConfirmStore()
+        request = effect_request("ModelCallRequested", {})
+        run(store.append("run-1", -1, [request]))
+        calls = 0
+        effects = EffectRegistry[ChatState]()
+
+        @effects.effect("ModelCallRequested")
+        async def call_model(event, state, context):
+            nonlocal calls
+            calls += 1
+            return [Event("ModelCallSucceeded", {})]
+
+        worker = DurableEffectDispatcher(
+            agent=build_chat_agent(),
+            store=store,
+            effects=effects,
+            context=EffectContext({}),
+            subscription_name="effects",
+            owns_stream=own_all_streams,
+            lease_options=EffectLeaseOptions("worker-a"),
+        )
+        self.assertIs(run(worker.run_once()), True)
+        self.assertEqual(calls, 0)
+        self.assertEqual(run(store.load_checkpoint("effects")), 1)
+        self.assertEqual(
+            [item.event.event_type for item in run(store.load("run-1"))],
+            ["ModelCallRequested", "RunCompleted"],
+        )
+
 
 class FrameworkApiSmokeTests(unittest.TestCase):
-    """Minimal proof that agentlog.framework.Agent actually compiles into
+    """Minimal proof that aiq.framework.Agent actually compiles into
     and drives the existing runtime -- not a second engine. Full framework
     behavior lives in examples/framework_chat_agent.py, exercised directly
     by hand in this task rather than duplicated into a large test suite."""
 
     def _build_declared_agent(self):
-        from agentlog.framework import Agent
+        from aiq.framework import Agent
 
         @dataclass(frozen=True)
         class DemoState:
@@ -1286,7 +1502,7 @@ class FrameworkApiSmokeTests(unittest.TestCase):
                 return state
 
     def test_reduce_for_unregistered_event_type_is_rejected(self) -> None:
-        from agentlog.framework import Agent
+        from aiq.framework import Agent
 
         agent = Agent(name="framework-smoke-2", initial_state=lambda: None)
 
@@ -1301,7 +1517,7 @@ class FrameworkApiSmokeTests(unittest.TestCase):
                 return state
 
     def test_sync_function_registered_as_effect_is_rejected(self) -> None:
-        from agentlog.framework import Agent
+        from aiq.framework import Agent
 
         agent = Agent(name="framework-smoke-3", initial_state=lambda: None)
 
@@ -1353,7 +1569,7 @@ class FrameworkApiSmokeTests(unittest.TestCase):
         )
 
     def test_command_rejected_is_caught_and_becomes_a_domain_event(self) -> None:
-        from agentlog.framework import CommandRejected
+        from aiq.framework import CommandRejected
 
         agent, Added = self._build_declared_agent()
 
@@ -1369,7 +1585,7 @@ class FrameworkApiSmokeTests(unittest.TestCase):
         self.assertEqual(produced[0].data["reason"], "text must not be empty")
 
     def test_effect_failed_is_caught_and_commits_atomically(self) -> None:
-        from agentlog.framework import Agent, EffectFailed
+        from aiq.framework import Agent, EffectFailed
 
         agent = Agent(name="framework-smoke-4", initial_state=lambda: None)
 
@@ -1412,7 +1628,7 @@ class FrameworkApiSmokeTests(unittest.TestCase):
         self.assertEqual(checkpoint, history[0].global_position)
 
     def test_undeclared_exception_from_effect_still_propagates(self) -> None:
-        from agentlog.framework import Agent
+        from aiq.framework import Agent
 
         agent = Agent(name="framework-smoke-5", initial_state=lambda: None)
 
@@ -1450,7 +1666,7 @@ class FrameworkApiSmokeTests(unittest.TestCase):
         a brand new Agent, a brand new resource instance, a freshly
         reopened SQLite file -- must finish it correctly using nothing
         else. See docs/effects.md#no-hidden-operational-state."""
-        from agentlog.framework import Agent
+        from aiq.framework import Agent
 
         @dataclass(frozen=True)
         class ResumeState:

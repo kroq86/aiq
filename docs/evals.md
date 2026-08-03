@@ -1,6 +1,6 @@
 # Trace evaluations
 
-Agentlog evals grade an existing durable `CausalTrace`. The eval package does
+AIQ evals grade an existing durable `CausalTrace`. The eval package does
 not execute providers or tools itself. A dataset names an async executor adapter
 that runs one case through the application's normal durable path and returns the
 exported trace.
@@ -35,7 +35,7 @@ async def execute_case(case: EvalCase) -> CausalTrace:
 Run the dataset and optionally write a JSON report for CI:
 
 ```bash
-agentlog eval run dataset.json --json-report report.json
+aiq eval run dataset.json --json-report report.json
 ```
 
 `--executor module:callable` overrides the dataset executor. The command exits
@@ -51,7 +51,7 @@ observations. Concrete event IDs and timestamps are not compared.
 Compare two version 2 reports without invoking a model or tool:
 
 ```bash
-agentlog eval compare baseline.json candidate.json \
+aiq eval compare baseline.json candidate.json \
   --json-report comparison.json
 ```
 

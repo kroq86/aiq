@@ -11,8 +11,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import httpx
 
-from agentlog import OllamaProvider, SQLiteEventStore, ToolRegistry
-from agentlog.fastapi import AgentlogApplication
+from aiq import OllamaProvider, SQLiteEventStore, ToolRegistry
+from aiq.fastapi import AIQApplication
 from tests.test_model_loop_policy import define, get_weather, run
 
 
@@ -66,7 +66,7 @@ class ModelLoopFastAPIAcceptanceTests(unittest.TestCase):
             first_agent, first_loop = define(tools)
             first_client = ollama_client(block_continuation=True)
             first_provider = OllamaProvider(first_client, model="llama")
-            first = AgentlogApplication(
+            first = AIQApplication(
                 store=store,
                 poll_interval_seconds=0.01,
                 shutdown_timeout_seconds=0.05,
@@ -100,7 +100,7 @@ class ModelLoopFastAPIAcceptanceTests(unittest.TestCase):
             fresh_agent, fresh_loop = define(fresh_tools)
             second_client = ollama_client(block_continuation=False)
             second_provider = OllamaProvider(second_client, model="llama")
-            second = AgentlogApplication(store=store, poll_interval_seconds=0.01)
+            second = AIQApplication(store=store, poll_interval_seconds=0.01)
             second.register(
                 fresh_agent,
                 resources={"model": second_provider, "tools": fresh_tools},

@@ -17,7 +17,7 @@ with warnings.catch_warnings():
     )
     from fastapi.testclient import TestClient
 
-from agentlog import (
+from aiq import (
     AgentDefinition,
     EffectContext,
     EffectRegistry,
@@ -25,8 +25,8 @@ from agentlog import (
     SQLiteEventStore,
     effect_request,
 )
-from agentlog.fastapi import POLL_INTERVAL_SECONDS, _Broadcaster
-from agentlog.http import AgentRuntime, create_app
+from aiq.fastapi import POLL_INTERVAL_SECONDS, _Broadcaster
+from aiq.http import AgentRuntime, create_app
 
 
 @dataclass(frozen=True)
@@ -609,7 +609,7 @@ class HttpAgentTests(unittest.TestCase):
     def test_trace_endpoint_matches_trace_to_json_directly(self) -> None:
         """The HTTP boundary must not diverge from the library-level contract:
         no separate serialization path, no HTTP-only fields."""
-        from agentlog.trace import TraceService, trace_to_json
+        from aiq.trace import TraceService, trace_to_json
 
         with TestClient(self.app) as client:
             run_id = client.post(

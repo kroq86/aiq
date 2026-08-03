@@ -1,4 +1,4 @@
-"""Trace-based evaluation primitives for Agentlog runs."""
+"""Trace-based evaluation primitives for AIQ runs."""
 
 from .assertions import AssertionFailure, evaluate_trace
 from .case import EvalAssertions, EvalCase, EvalDataset

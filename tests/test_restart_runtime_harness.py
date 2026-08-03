@@ -4,7 +4,7 @@ import asyncio
 import unittest
 from dataclasses import replace
 
-from agentlog.evals import EvalCase, RestartEquivalenceRunner, compare_restart_traces
+from aiq.evals import EvalCase, RestartEquivalenceRunner, compare_restart_traces
 
 from tests.model.restart_eval_harness import BOUNDARIES, ModelLoopRestartExecutor
 

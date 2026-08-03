@@ -1,1 +1,1 @@
-"""Machine-checkable formal models for Agentlog."""
+"""Machine-checkable formal models for AIQ."""

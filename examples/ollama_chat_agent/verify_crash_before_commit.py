@@ -21,7 +21,7 @@ from pathlib import Path
 
 import httpx
 
-from agentlog import DurableDispatcher, DurableEffectDispatcher, Event, SQLiteEventStore
+from aiq import DurableDispatcher, DurableEffectDispatcher, Event, SQLiteEventStore
 from examples.ollama_chat_agent.main import OllamaContext, define_agent
 
 ollama_call_count = 0
@@ -74,7 +74,7 @@ async def main() -> None:
             [Event("RunCreated", {"agent": "ollama-chat", "definition_version": "1"})],
         )
         produced = agent.handle_command(
-            "message", {"text": "Reply with exactly: AGENTLOG_OK"}
+            "message", {"text": "Reply with exactly: AIQ_OK"}
         )
         await store.append(stream_id, 0, produced)
 

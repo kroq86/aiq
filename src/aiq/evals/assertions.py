@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from agentlog.trace import CausalTrace, TraceEvent
+from aiq.trace import CausalTrace, TraceEvent
 
 from .case import EvalCase
 

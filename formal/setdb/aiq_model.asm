@@ -1,4 +1,4 @@
-; Agentlog 0.2 bounded formal model -- FASM fact generator.
+; AIQ 0.2 bounded formal model -- FASM fact generator.
 ;
 ; The executable writes setdb's durable SADD/RADD wire format to stdout.
 ; MODEL_MUTATION selects one local broken rule. The common invariant

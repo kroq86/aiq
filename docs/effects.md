@@ -1,6 +1,6 @@
 # Effect execution semantics
 
-Этот документ является source of truth для effect boundary `agentlog`.
+Этот документ является source of truth для effect boundary `aiq`.
 
 ## Effect delivery guarantee (читать в первую очередь)
 
@@ -27,7 +27,7 @@ crash after the external call but before commit may repeat the effect
 - **Но если процесс падает между внешним вызовом и commit-ом** (например,
   LLM/HTTP уже ответил, а SQLite transaction ещё не закоммичена), effect
   может быть вызван повторно после restart. Это `at-least-once`, не
-  `exactly-once` — agentlog **не может** и не обещает больше.
+  `exactly-once` — aiq **не может** и не обещает больше.
 - Единственный инструмент против дублирования на стороне внешней
   системы — стабильный `operation_id` (`event_id` immutable request
   event, см. "Effect identity" ниже): передавайте его во внешний API,
@@ -188,7 +188,7 @@ validate effect request
 или был дедуплицирован.
 
 ```python
-attempt_store = await SQLiteEffectAttemptStore.open("agentlog.db")
+attempt_store = await SQLiteEffectAttemptStore.open("aiq.db")
 worker = DurableEffectDispatcher(
     ...,
     attempt_store=attempt_store,
@@ -230,9 +230,9 @@ tuple означает «наблюдалась, attempts не было». Эт�
 
 ### Deployment contract
 
-Без внешней координации поддерживаемое operational assumption — не более
-одного активного `DurableEffectDispatcher` для canonical effect subscription
-конкретной версии агента:
+По умолчанию operational assumption — не более одного активного
+`DurableEffectDispatcher` для canonical effect subscription конкретной версии
+агента:
 
 ```text
 {agent_name}:{definition_version}:effects
@@ -245,10 +245,88 @@ tuple означает «наблюдалась, attempts не было». Эт�
 независимыми consumers и вообще не должны использоваться как replicas одного
 effect worker.
 
-Поэтому multi-worker deployment, которому требуется single-flight внешнего
-effect, обязан предоставить внешний lease/fencing protocol. Stable
-`operation_id` и downstream idempotency всё равно остаются обязательными:
-lease уменьшает конкурентные повторы, но не устраняет crash window.
+Для workers на одном общем SQLite-файле доступен opt-in fenced mode:
+
+```python
+integration = AIQ(
+    store=await SQLiteEventStore.open("aiq.db"),
+    runtimes=runtimes,
+    lease_options=EffectLeaseOptions(
+        worker_id="worker-instance-7",
+        ttl_seconds=30,
+        renewal_interval_seconds=10,
+    ),
+)
+```
+
+Claim создаёт новый `lease_id`, увеличивает fencing token и append
+`EffectDispatchAttempt` в одной `BEGIN IMMEDIATE` transaction. Full-stream
+terminal и уже committed result проверяются внутри этой transaction.
+Непосредственно перед handler отдельная короткая transaction подтверждает
+`lease_id + worker_id + token + status + DB expiry`. Renewal использует SQLite
+DB time, сохраняет lease ID/token и меняет только expiry. Result events,
+checkpoint и закрытие lease фиксируются одной transaction после повторной
+проверки ownership. Stale/expired worker fail-closed: он не пишет ни output,
+ни checkpoint.
+
+`attempt_store` и `lease_options` нельзя задавать одновременно: host и
+dispatcher выбрасывают `ValueError` при construction. В lease mode attempt
+уже является частью atomic claim.
+
+Если event store и старый `SQLiteEffectAttemptStore` используют один файл,
+существующие `effect_attempts` сохраняются и numbering продолжается. Для
+разных файлов автоматического merge нет: старый файл остаётся audit archive;
+до включения lease pending effects нужно drain либо явно перенести ledger,
+если требуется непрерывная нумерация.
+
+Heartbeat зависит от cooperative asyncio scheduling. Blocking/CPU-heavy
+handler может не дать heartbeat выполниться, вызвать ранний takeover и
+двойное physical execution. Fenced commit всё равно отвергнет старого
+владельца, но уже начатый внешний effect не отменит. Поэтому stable
+`operation_id` и downstream idempotency обязательны.
+
+### Lease observations
+
+SQLite хранит append-only operational ledger только для
+`claim_acquired`, `busy`, `expiry`, `renewal`, `takeover`,
+`stale_ownership` и `stale_commit_rejection`. Каждая запись содержит
+operation/request identity, worker, lease ID, fencing token и, когда был
+создан attempt, его ID/number. Ledger пишется в той же coordination
+transaction, которая устанавливает факт; он не управляет ownership.
+
+Каждый busy poll и heartbeat renewal создаёт строку. Поэтому слишком короткий
+renewal interval или contention storm увеличивает write amplification и размер
+SQLite-файла. Это audit evidence, не точный downstream-call counter.
+
+### Downstream idempotency contract
+
+Один logical effect сохраняет один `operation_id` во всех physical retries.
+Lease уменьшает конкурентные вызовы, но external execution остаётся
+at-least-once. Application должна классифицировать effect:
+
+- read-only;
+- naturally idempotent;
+- downstream idempotency-key aware;
+- application-deduplicated;
+- unsafe non-idempotent.
+
+Первые четыре категории должны использовать стабильный `operation_id` как
+ключ или вход собственного dedup protocol. Для unsafe non-idempotent effect
+automatic retry требует явной application policy: запрета retry, human
+confirmation либо осознанного принятия риска. AIQ не добавляет в этом
+релизе универсальный `ToolExecutionContext` или compensation framework.
+
+### SQLite operational limits
+
+Все coordinated workers используют один SQLite-файл с WAL и корректными
+filesystem locks. Coordination writes короткие, используют connection per
+operation и `BEGIN IMMEDIATE`; handler никогда не выполняется внутри
+transaction. SQLite database time authoritative, expiry inclusive:
+`lease_expires_at <= database_now` означает stale. `busy_timeout=5000ms`
+задаёт bounded storage wait, после которого ошибка выходит наружу; отдельный
+unbounded retry loop не скрывает contention. Backup должен использовать
+SQLite-safe snapshot/backup mechanism, а не копирование активного файла на
+произвольной network filesystem.
 
 ## Dependency injection
 
@@ -340,8 +418,8 @@ terminal_event_types={
 
 ## Не реализовано
 
-- leases;
-- single-flight между несколькими worker processes;
+- leases для разных database backends или разных SQLite-файлов;
+- гарантия отсутствия overlapping physical calls после lease expiry;
 - exponential retry schedule;
 - точные downstream physical-call counters;
 - timeout classification hierarchy;

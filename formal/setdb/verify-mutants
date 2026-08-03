@@ -8,7 +8,7 @@ cases=(
   'mutant_result_without_request.asm:ResultHasRequest'
   'mutant_operation_mismatch.asm:ResultOperationMatchesRequest'
   'mutant_duplicate_result.asm:AtMostOneResultPerRequest'
-  'agentlog_model_mutant.asm:AtMostOneTerminal'
+  'aiq_model_mutant.asm:AtMostOneTerminal'
   'mutant_terminal_progression.asm:TerminalIsAbsorbing'
   'mutant_resource_mismatch.asm:DefinitionResourceConsistent'
 )

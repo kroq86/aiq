@@ -1,5 +1,5 @@
 """End-to-end scenarios through the real FastAPI surface
-(`agentlog.framework.Agent` + `agentlog.fastapi.AgentlogApplication`), not
+(`aiq.framework.Agent` + `aiq.fastapi.AIQApplication`), not
 hand-built `AgentDefinition`/`AgentRuntime` fixtures. These four scenarios
 were chosen to prove the product's actual guarantees, not to maximize test
 count:
@@ -45,9 +45,9 @@ with warnings.catch_warnings():
     )
     from fastapi.testclient import TestClient
 
-from agentlog import DurableDispatcher, Event, SQLiteEventStore, run_stream_id
-from agentlog.fastapi import AgentlogApplication
-from agentlog.framework import Agent, CommandRejected, EffectFailed
+from aiq import DurableDispatcher, Event, SQLiteEventStore, run_stream_id
+from aiq.fastapi import AIQApplication
+from aiq.framework import Agent, CommandRejected, EffectFailed
 
 
 def run(coro):
@@ -204,7 +204,7 @@ class HappyPathTests(unittest.TestCase):
         self._temp_dir.cleanup()
 
     def test_completed_happy_path_through_create_run_command_sse_state_trace(self) -> None:
-        integration = AgentlogApplication(
+        integration = AIQApplication(
             store=run(SQLiteEventStore.open(self.path)),
             poll_interval_seconds=0.05,
         )
@@ -260,7 +260,7 @@ class EffectFailedTests(unittest.TestCase):
         self._temp_dir.cleanup()
 
     def test_one_agents_effect_failure_does_not_affect_a_different_run(self) -> None:
-        integration = AgentlogApplication(
+        integration = AIQApplication(
             store=run(SQLiteEventStore.open(self.path)),
             poll_interval_seconds=0.05,
         )
@@ -338,7 +338,7 @@ class TerminalConflictTests(unittest.TestCase):
         self,
     ) -> None:
         store = run(SQLiteEventStore.open(self.path))
-        integration = AgentlogApplication(store=store, poll_interval_seconds=0.05)
+        integration = AIQApplication(store=store, poll_interval_seconds=0.05)
         integration.register(build_terminal_conflict_agent())
         app = FastAPI(lifespan=integration.lifespan)
         app.include_router(integration.router)
@@ -380,7 +380,7 @@ class CrashRestartTests(unittest.TestCase):
             # Generation 1: create the run and append UserMessageAdded via
             # the real command handler, then drive only the reaction (not
             # the effect) by hand -- deliberately not through a running
-            # AgentlogApplication/TestClient background worker, to avoid
+            # AIQApplication/TestClient background worker, to avoid
             # racing a real poll loop against this setup step.
             agent1, context1 = build_agent_and_context(fail_effect=False)
             runtime1 = agent1.build_runtime(context=context1)
@@ -405,11 +405,11 @@ class CrashRestartTests(unittest.TestCase):
             del agent1, runtime1, context1
 
             # Generation 2: brand new Agent, brand new resource instance,
-            # a real AgentlogApplication/FastAPI app over a freshly opened
+            # a real AIQApplication/FastAPI app over a freshly opened
             # store pointed at the same file. It must finish the run using
             # nothing else.
             store2 = run(SQLiteEventStore.open(path))
-            integration = AgentlogApplication(store=store2, poll_interval_seconds=0.05)
+            integration = AIQApplication(store=store2, poll_interval_seconds=0.05)
             agent2, context2 = build_agent_and_context(fail_effect=False)
             integration.register(agent2, context=context2)
             app = FastAPI(lifespan=integration.lifespan)
@@ -449,7 +449,7 @@ class DefinitionVersionIsolationTests(unittest.TestCase):
 
     def test_reading_or_commanding_a_run_under_a_different_version_is_409(self) -> None:
         store_v1 = run(SQLiteEventStore.open(self.path))
-        integration_v1 = AgentlogApplication(store=store_v1, poll_interval_seconds=0.05)
+        integration_v1 = AIQApplication(store=store_v1, poll_interval_seconds=0.05)
         agent_v1, context_v1 = build_agent_and_context(version="v1")
         integration_v1.register(agent_v1, context=context_v1)
         app_v1 = FastAPI(lifespan=integration_v1.lifespan)
@@ -466,7 +466,7 @@ class DefinitionVersionIsolationTests(unittest.TestCase):
         # A second, independent generation -- different Agent instance,
         # different version -- reopens the same file.
         store_v2 = run(SQLiteEventStore.open(self.path))
-        integration_v2 = AgentlogApplication(
+        integration_v2 = AIQApplication(
             store=store_v2, poll_interval_seconds=60
         )
         agent_v2, context_v2 = build_agent_and_context(version="v2")
@@ -490,7 +490,7 @@ class DefinitionVersionIsolationTests(unittest.TestCase):
         than a run created after the deploy, so the background worker
         reaches it first. It must be skipped, not crash the worker."""
         store_v1 = run(SQLiteEventStore.open(self.path))
-        integration_v1 = AgentlogApplication(
+        integration_v1 = AIQApplication(
             store=store_v1, poll_interval_seconds=60
         )
         agent_v1, context_v1 = build_agent_and_context(version="v1")
@@ -509,7 +509,7 @@ class DefinitionVersionIsolationTests(unittest.TestCase):
             # UserMessageAdded, i.e. genuinely in-flight/incomplete.
 
         store_v2 = run(SQLiteEventStore.open(self.path))
-        integration_v2 = AgentlogApplication(
+        integration_v2 = AIQApplication(
             store=store_v2, poll_interval_seconds=0.05
         )
         agent_v2, context_v2 = build_agent_and_context(version="v2")
@@ -556,7 +556,7 @@ class DefinitionVersionIsolationTests(unittest.TestCase):
         (agent_name, definition_version, dispatcher_kind), not just
         agent_name."""
         store_v1a = run(SQLiteEventStore.open(self.path))
-        integration_v1a = AgentlogApplication(
+        integration_v1a = AIQApplication(
             store=store_v1a, poll_interval_seconds=60
         )
         agent_v1a, context_v1a = build_agent_and_context(version="v1")
@@ -575,7 +575,7 @@ class DefinitionVersionIsolationTests(unittest.TestCase):
         # Only a v2 worker runs for a while: it encounters run-old and
         # skips it.
         store_v2 = run(SQLiteEventStore.open(self.path))
-        integration_v2 = AgentlogApplication(
+        integration_v2 = AIQApplication(
             store=store_v2, poll_interval_seconds=0.05
         )
         agent_v2, context_v2 = build_agent_and_context(version="v2")
@@ -589,7 +589,7 @@ class DefinitionVersionIsolationTests(unittest.TestCase):
 
         # v1 comes back (e.g. a rollback) on the same file.
         store_v1b = run(SQLiteEventStore.open(self.path))
-        integration_v1b = AgentlogApplication(
+        integration_v1b = AIQApplication(
             store=store_v1b, poll_interval_seconds=0.05
         )
         agent_v1b, context_v1b = build_agent_and_context(version="v1")

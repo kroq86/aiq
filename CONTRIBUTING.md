@@ -1,6 +1,6 @@
-# Contributing to Agentlog
+# Contributing to AIQ
 
-Agentlog treats durable execution semantics as public contracts. Keep changes
+AIQ treats durable execution semantics as public contracts. Keep changes
 small enough that their state boundary, invariants and evidence can be reviewed
 together.
 
@@ -17,7 +17,7 @@ Before changing behavior:
 
 ## Pre-1.0 version policy
 
-Before 1.0, Agentlog versions follow the reviewed roadmap rather than claiming
+Before 1.0, AIQ versions follow the reviewed roadmap rather than claiming
 a stable public API:
 
 - `0.y.z` may add backward-compatible, opt-in capabilities within the current
@@ -84,7 +84,7 @@ bounded-exhaustive model with a non-vacuity witness, got at least one targeted
 mutant with a concrete counterexample, got a runtime/restart scenario check
 against the real dispatcher, and shipped with an explicit boundary of what
 remains unproved. The effect-dispatch attempt ledger
-(`src/agentlog/attempts.py`) reuses the existing crash-window model and its
+(`src/aiq/attempts.py`) reuses the existing crash-window model and its
 runtime-refinement scenario; it does not claim a separate bounded model or an
 attempt-specific semantic mutant.
 

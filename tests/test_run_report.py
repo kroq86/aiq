@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from dataclasses import replace
 
-from agentlog import (
+from aiq import (
     CausalTrace,
     DurableDispatcher,
     DurableEffectDispatcher,
@@ -108,7 +108,7 @@ class RunReportTests(unittest.TestCase):
 
         payload = run_report_to_json(report)
         self.assertEqual(payload["schema_version"], 1)
-        self.assertEqual(payload["report_kind"], "agentlog-run-report")
+        self.assertEqual(payload["report_kind"], "aiq-run-report")
         self.assertEqual(payload["tool_outcomes"]["succeeded"], 1)
         self.assertEqual(payload["control"]["goal_satisfied"], True)
         self.assertEqual(

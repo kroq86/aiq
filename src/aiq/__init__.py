@@ -28,6 +28,7 @@ from .attempts import (
     InMemoryEffectAttemptStore,
     build_effect_attempt_metrics,
 )
+from .leases import EffectLeaseOptions
 from .sqlite import (
     SQLiteEffectAttemptStore,
     SQLiteEventStore,
@@ -149,6 +150,7 @@ __all__ = [
     "EffectAttemptStore",
     "EffectDispatchAttempt",
     "EffectFailed",
+    "EffectLeaseOptions",
     "EffectMetadataError",
     "EffectRegistry",
     "ExecutionPolicy",

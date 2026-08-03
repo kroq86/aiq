@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-abstract-emit.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/aiq-abstract-emit.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 (cd "$ROOT" && "${FASM_BIN:-$(command -v fasm)}" abstract_emit_fixture.asm "$WORK/emit" >/dev/null)
 "$WORK/emit" >"$WORK/actual.setdb"

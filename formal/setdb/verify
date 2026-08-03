@@ -5,23 +5,23 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL_BOUND_VALUE="${MODEL_BOUND:-10}"
 FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
 SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
-if [[ -z "$SETDB_BIN" && -x /tmp/agentlog-setdb-bin ]]; then
-  SETDB_BIN=/tmp/agentlog-setdb-bin
+if [[ -z "$SETDB_BIN" && -x /tmp/aiq-setdb-bin ]]; then
+  SETDB_BIN=/tmp/aiq-setdb-bin
 fi
 if [[ -z "$SETDB_BIN" ]]; then
   echo 'setdb not found; set SETDB_BIN' >&2
   exit 2
 fi
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-formal.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/aiq-formal.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 if [[ "$MODEL_BOUND_VALUE" == "10" ]]; then
-  (cd "$ROOT" && "$FASM_BIN" agentlog_model_normal.asm "$WORK/model" >/dev/null)
+  (cd "$ROOT" && "$FASM_BIN" aiq_model_normal.asm "$WORK/model" >/dev/null)
 else
   cp -R "$ROOT/." "$WORK/source"
   sed -i.bak "s/^MODEL_BOUND equ 10$/MODEL_BOUND equ $MODEL_BOUND_VALUE/" "$WORK/source/model_state.inc"
   rm "$WORK/source/model_state.inc.bak"
-  (cd "$WORK/source" && "$FASM_BIN" agentlog_model_normal.asm "$WORK/model" >/dev/null)
+  (cd "$WORK/source" && "$FASM_BIN" aiq_model_normal.asm "$WORK/model" >/dev/null)
 fi
 "$WORK/model" >"$WORK/model.all"
 sed '/^# ENC /d' "$WORK/model.all" >"$WORK/model.setdb"

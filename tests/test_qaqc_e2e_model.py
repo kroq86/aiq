@@ -4,8 +4,8 @@ import asyncio
 import tempfile
 import unittest
 
-from agentlog import ArtifactRef
-from agentlog.evals import compare_restart_traces, evaluate_crash_window
+from aiq import ArtifactRef
+from aiq.evals import compare_restart_traces, evaluate_crash_window
 from formal.model.spec import ReferenceState, assert_invariants
 from tests.model.normalization import normalize_history
 from tests.model.qaqc_e2e_harness import (

@@ -2,7 +2,7 @@
 
 ## Protocol scope
 
-This records one local execution pass through Agentlog's real
+This records one local execution pass through AIQ's real
 `OllamaProvider`, bounded corporate workflow, and FastAPI adapter. It is
 scenario evidence from one machine, not a model-quality guarantee, throughput
 benchmark, or universal refinement proof.
@@ -68,7 +68,7 @@ trace:
 ```
 
 The model emitted argument keys `" Return"` and `" city"` instead of the
-declared `city` key. Agentlog rejected the call as `missing required arguments:
+declared `city` key. AIQ rejected the call as `missing required arguments:
 ['city']`; the Python tool was not executed. This is a successful transport and
 guard-boundary check, but not a successful model trajectory.
 
@@ -125,7 +125,7 @@ Run a fresh bounded attempt by choosing a new database path:
 ```bash
 PYTHONPATH=src:. .venv/bin/python \
   examples/bounded_corporate_agent/main.py \
-  /tmp/agentlog-fresh.sqlite happy --ollama --model llama3.2:1b
+  /tmp/aiq-fresh.sqlite happy --ollama --model llama3.2:1b
 ```
 
 Start the HTTP example:
@@ -133,7 +133,7 @@ Start the HTTP example:
 ```bash
 PYTHONPATH=src:. .venv/bin/python \
   examples/durable_model_loop_fastapi/main.py \
-  /tmp/agentlog-http.sqlite --model qwen2.5:3b --port 8766
+  /tmp/aiq-http.sqlite --model qwen2.5:3b --port 8766
 ```
 
 The endpoint sequence is documented in

@@ -4,7 +4,7 @@ import asyncio
 import unittest
 from dataclasses import dataclass
 
-from agentlog import (
+from aiq import (
     Agent,
     DurableDispatcher,
     DurableEffectDispatcher,
@@ -21,7 +21,7 @@ from agentlog import (
     ToolRequest,
     run_stream_id,
 )
-from agentlog.middleware import (
+from aiq.middleware import (
     MiddlewareExecutionError,
     ModelCallContext,
     apply_after_model,

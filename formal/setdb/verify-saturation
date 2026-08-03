@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FASM_BIN="${FASM_BIN:-$(command -v fasm)}"
 SETDB_BIN="${SETDB_BIN:-$(command -v setdb || true)}"
-if [[ -z "$SETDB_BIN" && -x /tmp/agentlog-setdb-bin ]]; then
-  SETDB_BIN=/tmp/agentlog-setdb-bin
+if [[ -z "$SETDB_BIN" && -x /tmp/aiq-setdb-bin ]]; then
+  SETDB_BIN=/tmp/aiq-setdb-bin
 fi
 if [[ -z "$SETDB_BIN" ]]; then
   echo 'setdb not found; set SETDB_BIN' >&2
@@ -15,7 +15,7 @@ fi
 BASE_BOUND=12
 GUARD_BOUND=14
 CORE_HEX_LENGTH=$((1 + (8 + BASE_BOUND * 4) * 2))
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agentlog-saturation.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/aiq-saturation.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 build_graph() {
@@ -25,7 +25,7 @@ build_graph() {
   cp -R "$ROOT/." "$target/source"
   sed -i.bak "s/^MODEL_BOUND equ 10$/MODEL_BOUND equ $bound/" "$target/source/model_state.inc"
   rm "$target/source/model_state.inc.bak"
-  (cd "$target/source" && "$FASM_BIN" agentlog_model_normal.asm "$target/model" >/dev/null)
+  (cd "$target/source" && "$FASM_BIN" aiq_model_normal.asm "$target/model" >/dev/null)
   "$target/model" >"$target/model.all"
   sed '/^# ENC /d' "$target/model.all" >"$target/model.setdb"
   "$SETDB_BIN" new "$target/model.db"

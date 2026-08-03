@@ -13,7 +13,7 @@ metadata). It rejects SQL `UPDATE` and `DELETE` through database triggers and
 batch-loads exact references with one query.
 
 ```python
-store = await SQLiteArtifactStore.open("agentlog.db")
+store = await SQLiteArtifactStore.open("aiq.db")
 ref = await store.put(
     "policy",
     content,

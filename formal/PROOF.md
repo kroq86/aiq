@@ -1,4 +1,4 @@
-# Agentlog 0.2: formal safety proof record
+# AIQ 0.2: formal safety proof record
 
 The complete current model and its decomposition are specified in
 `formal/FORMAL_MODEL.md`. This file is the machine-checked result record and
@@ -6,7 +6,7 @@ reproduction guide.
 
 ## 1. Claim
 
-This document records the machine-checked Agentlog 0.2 safety results: the
+This document records the machine-checked AIQ 0.2 safety results: the
 single-run trace model in `formal/setdb`, its runtime-refinement evidence, the
 parameterized ModelLoopModel abstraction, and the dispatcher crash-window
 safety abstraction.
@@ -509,7 +509,7 @@ cover every conceivable defect.
 ## 11. Runtime abstraction and refinement evidence
 
 The formal proof above concerns the model. A separate executable layer checks
-observed Agentlog runtime traces against the proved graph.
+observed AIQ runtime traces against the proved graph.
 
 The abstraction function is:
 
@@ -814,7 +814,7 @@ processes, and is not universal runtime refinement.
 
 The established results are:
 
-> All 463 states reachable in the bounded single-run Agentlog 0.2 formal model
+> All 463 states reachable in the bounded single-run AIQ 0.2 formal model
 > with history length at most ten satisfy eight safety invariants, and every
 > invariant independently detects a targeted transition mutation. In addition,
 > 122 observed runtime snapshots across four direct scenarios and one FastAPI
@@ -831,7 +831,7 @@ The established results are:
 The fixed configuration's formal model is proved within its stated scope.
 Runtime refinement is supported by finite scenario evidence at the ten-event
 ABI. Neither result is an unbounded proof of arbitrary policy limits or of the
-complete Agentlog runtime.
+complete AIQ runtime.
 
 The parameterized ModelLoopModel, local dispatcher crash-window model, and
 local EventStoreModel also have inductive safety proofs over their complete

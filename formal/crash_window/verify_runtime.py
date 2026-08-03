@@ -9,7 +9,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from agentlog import (
+from aiq import (
     DurableDispatcher,
     DurableEffectDispatcher,
     Event,
@@ -311,7 +311,7 @@ async def verify_runtime_trace(
 
 
 def main() -> int:
-    with tempfile.TemporaryDirectory(prefix="agentlog-crash-refinement-") as directory:
+    with tempfile.TemporaryDirectory(prefix="aiq-crash-refinement-") as directory:
         states, invariant, transitions = build_graph(Path(directory))
         snapshots, invocations = asyncio.run(
             verify_runtime_trace(

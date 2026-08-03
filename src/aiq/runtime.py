@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from functools import partial
 from types import MappingProxyType
@@ -10,10 +12,18 @@ from typing import Any, Generic, TypeVar
 from uuid import UUID, uuid4
 
 from .attempts import EffectAttemptStore
-from .core import Event, EventEnvelope, EventStore, JsonValue, VersionConflictError
+from .core import (
+    CheckpointConflictError,
+    Event,
+    EventEnvelope,
+    EventStore,
+    JsonValue,
+    VersionConflictError,
+)
+from .leases import EffectLease, EffectLeaseOptions, FencedEffectStore
 from .streams import agent_owns_stream
 
-logger = logging.getLogger("agentlog.runtime")
+logger = logging.getLogger("aiq.runtime")
 
 State = TypeVar("State")
 Reducer = Callable[[State, Event], State]
@@ -239,6 +249,94 @@ async def _commit_outputs_with_retry(
         except VersionConflictError:
             if attempt == max_attempts - 1:
                 raise
+
+
+async def _commit_fenced_outputs_with_retry(
+    *,
+    store: FencedEffectStore,
+    lease: EffectLease,
+    subscription_name: str,
+    stream_id: str,
+    consumed: EventEnvelope,
+    outputs: tuple[Event, ...],
+    agent: "AgentDefinition[Any]",
+    max_attempts: int = 3,
+) -> None:
+    for attempt in range(max_attempts):
+        checkpoint = await store.load_checkpoint(subscription_name)
+        if checkpoint >= consumed.global_position:
+            return
+        history = await store.load(stream_id)
+        commit_outputs = outputs
+        if history and agent.is_terminal(
+            history, through_version=history[-1].stream_version
+        ):
+            commit_outputs = ()
+        current_stream_version = history[-1].stream_version if history else -1
+        try:
+            await store.commit_fenced_subscription_batch(
+                lease,
+                expected_checkpoint=checkpoint,
+                stream_id=stream_id,
+                expected_stream_version=current_stream_version,
+                events=commit_outputs,
+                new_checkpoint=consumed.global_position,
+                terminal_event_types=agent.terminal_event_types,
+            )
+            return
+        except VersionConflictError:
+            if attempt == max_attempts - 1:
+                raise
+
+
+async def _run_handler_with_heartbeat(
+    *,
+    store: FencedEffectStore,
+    lease: EffectLease,
+    options: EffectLeaseOptions,
+    handler: EffectHandler[Any],
+    event: Event,
+    state: Any,
+    context: "EffectContext",
+) -> Sequence[Event]:
+    async def renew_forever() -> None:
+        while True:
+            await asyncio.sleep(options.renewal_interval_seconds)
+            await store.renew_effect_claim(
+                lease,
+                lease_ttl_seconds=options.ttl_seconds,
+            )
+
+    handler_task = asyncio.create_task(handler(event, state, context))
+    heartbeat_task = asyncio.create_task(renew_forever())
+    try:
+        done, _ = await asyncio.wait(
+            (handler_task, heartbeat_task),
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if heartbeat_task in done:
+            error = heartbeat_task.exception()
+            handler_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await handler_task
+            if error is None:
+                raise RuntimeError("effect lease heartbeat stopped unexpectedly")
+            raise error
+        return await handler_task
+    finally:
+        heartbeat_task.cancel()
+        handler_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await heartbeat_task
+        with suppress(asyncio.CancelledError):
+            await handler_task
+
+
+async def _release_lease_best_effort(
+    store: FencedEffectStore, lease: EffectLease
+) -> None:
+    with suppress(Exception, asyncio.CancelledError):
+        await store.release_effect_claim(lease)
 
 
 @dataclass(frozen=True, slots=True)
@@ -479,7 +577,7 @@ class DurableDispatcher(Generic[State]):
             self._agent.assert_definition_matches(history)
         except DefinitionMismatchError as error:
             logger.warning(
-                "agentlog: skipping stream %r -- %s (blocked; not "
+                "aiq: skipping stream %r -- %s (blocked; not "
                 "reprocessed automatically -- see DefinitionMismatchError)",
                 consumed.stream_id,
                 error,
@@ -528,15 +626,30 @@ class DurableEffectDispatcher(Generic[State]):
         subscription_name: str,
         owns_stream: StreamOwnership | None = None,
         attempt_store: EffectAttemptStore | None = None,
+        lease_options: EffectLeaseOptions | None = None,
     ) -> None:
         if not subscription_name:
             raise ValueError("subscription_name must not be empty")
+        if lease_options is not None and attempt_store is not None:
+            raise ValueError(
+                "attempt_store cannot be configured with effect leases"
+            )
+        if lease_options is not None and not isinstance(
+            store, FencedEffectStore
+        ):
+            raise TypeError(
+                "lease-enabled effect dispatch requires FencedEffectStore"
+            )
         self._agent = agent
         self._store = store
         self._effects = effects
         self._context = context
         self._subscription_name = subscription_name
         self._attempt_store = attempt_store
+        self._lease_options = lease_options
+        self._fenced_store = (
+            store if lease_options is not None else None
+        )
         self._owns_stream = owns_stream or partial(
             agent_owns_stream,
             agent.name,
@@ -565,7 +678,7 @@ class DurableEffectDispatcher(Generic[State]):
             self._agent.assert_definition_matches(history_at_dispatch)
         except DefinitionMismatchError as error:
             logger.warning(
-                "agentlog: skipping stream %r -- %s (blocked; not "
+                "aiq: skipping stream %r -- %s (blocked; not "
                 "reprocessed automatically -- see DefinitionMismatchError)",
                 consumed.stream_id,
                 error,
@@ -593,7 +706,39 @@ class DurableEffectDispatcher(Generic[State]):
             outputs: tuple[Event, ...] = ()
         else:
             operation_id = _validate_effect_request(consumed.event)
-            if self._attempt_store is not None:
+            lease: EffectLease | None = None
+            if self._lease_options is not None:
+                assert isinstance(self._fenced_store, FencedEffectStore)
+                try:
+                    claim = await self._fenced_store.try_claim_effect(
+                        subscription_name=self._subscription_name,
+                        expected_checkpoint=checkpoint,
+                        request_global_position=consumed.global_position,
+                        operation_id=operation_id,
+                        stream_id=consumed.stream_id,
+                        request_event_type=consumed.event.event_type,
+                        worker_id=self._lease_options.worker_id,
+                        lease_ttl_seconds=self._lease_options.ttl_seconds,
+                        terminal_event_types=self._agent.terminal_event_types,
+                    )
+                except CheckpointConflictError:
+                    # A peer completed this subscription item after our
+                    # initial read. Shared checkpoint progress is success,
+                    # not a worker-health failure.
+                    return True
+                if claim.status == "busy":
+                    return False
+                if claim.status in {"terminal", "already_completed"}:
+                    await _advance_checkpoint_without_outputs(
+                        store=self._store,
+                        subscription_name=self._subscription_name,
+                        checkpoint=checkpoint,
+                        consumed=consumed,
+                    )
+                    return True
+                lease = claim.lease
+                assert lease is not None
+            elif self._attempt_store is not None:
                 await self._attempt_store.record_start(
                     operation_id=operation_id,
                     stream_id=consumed.stream_id,
@@ -601,25 +746,113 @@ class DurableEffectDispatcher(Generic[State]):
                     request_global_position=consumed.global_position,
                     subscription_name=self._subscription_name,
                 )
-            raw_outputs = tuple(
-                await handler(consumed.event, state, self._context)
-            )
-            if not all(isinstance(output, Event) for output in raw_outputs):
+            try:
+                if lease is None:
+                    raw_outputs = tuple(
+                        await handler(consumed.event, state, self._context)
+                    )
+                else:
+                    assert self._lease_options is not None
+                    assert isinstance(
+                        self._fenced_store, FencedEffectStore
+                    )
+                    confirmation = (
+                        await self._fenced_store.confirm_effect_claim(
+                            lease,
+                            terminal_event_types=(
+                                self._agent.terminal_event_types
+                            ),
+                        )
+                    )
+                    if confirmation.status != "confirmed":
+                        await _commit_fenced_outputs_with_retry(
+                            store=self._fenced_store,
+                            lease=lease,
+                            subscription_name=self._subscription_name,
+                            stream_id=consumed.stream_id,
+                            consumed=consumed,
+                            outputs=(),
+                            agent=self._agent,
+                        )
+                        return True
+                    raw_outputs = tuple(
+                        await _run_handler_with_heartbeat(
+                            store=self._fenced_store,
+                            lease=lease,
+                            options=self._lease_options,
+                            handler=handler,
+                            event=consumed.event,
+                            state=state,
+                            context=self._context,
+                        )
+                    )
+            except BaseException:
+                if lease is not None:
+                    assert isinstance(
+                        self._fenced_store, FencedEffectStore
+                    )
+                    await _release_lease_best_effort(
+                        self._fenced_store, lease
+                    )
+                raise
+            try:
+                if not all(
+                    isinstance(output, Event) for output in raw_outputs
+                ):
+                    raise TypeError(
+                        "effect handler must return only Event values"
+                    )
+                outputs = _normalize_effect_outputs(
+                    consumed.event,
+                    raw_outputs,
+                    operation_id=operation_id,
+                )
+            except BaseException:
+                if lease is not None:
+                    assert isinstance(
+                        self._fenced_store, FencedEffectStore
+                    )
+                    await _release_lease_best_effort(
+                        self._fenced_store, lease
+                    )
+                raise
+        try:
+            if not all(isinstance(output, Event) for output in outputs):
                 raise TypeError("effect handler must return only Event values")
-            outputs = _normalize_effect_outputs(
-                consumed.event,
-                raw_outputs,
-                operation_id=operation_id,
+            _validate_at_most_one_terminal_output(self._agent, outputs)
+        except BaseException:
+            if handler is not None and self._lease_options is not None:
+                assert lease is not None
+                assert isinstance(self._fenced_store, FencedEffectStore)
+                await _release_lease_best_effort(
+                    self._fenced_store, lease
+                )
+            raise
+        if handler is not None and self._lease_options is not None:
+            assert lease is not None
+            assert isinstance(self._fenced_store, FencedEffectStore)
+            try:
+                await _commit_fenced_outputs_with_retry(
+                    store=self._fenced_store,
+                    lease=lease,
+                    subscription_name=self._subscription_name,
+                    stream_id=consumed.stream_id,
+                    consumed=consumed,
+                    outputs=outputs,
+                    agent=self._agent,
+                )
+            except BaseException:
+                await _release_lease_best_effort(
+                    self._fenced_store, lease
+                )
+                raise
+        else:
+            await _commit_outputs_with_retry(
+                store=self._store,
+                subscription_name=self._subscription_name,
+                stream_id=consumed.stream_id,
+                consumed=consumed,
+                outputs=outputs,
+                agent=self._agent,
             )
-        if not all(isinstance(output, Event) for output in outputs):
-            raise TypeError("effect handler must return only Event values")
-        _validate_at_most_one_terminal_output(self._agent, outputs)
-        await _commit_outputs_with_retry(
-            store=self._store,
-            subscription_name=self._subscription_name,
-            stream_id=consumed.stream_id,
-            consumed=consumed,
-            outputs=outputs,
-            agent=self._agent,
-        )
         return True

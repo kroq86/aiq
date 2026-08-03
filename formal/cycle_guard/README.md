@@ -1,7 +1,7 @@
 # v0.4 cycle-guard bounded model
 
 This local finite model covers only the repeated-workflow-state guard
-(`_cycle_failure` in `src/agentlog/model_loop.py`), reusing the
+(`_cycle_failure` in `src/aiq/model_loop.py`), reusing the
 `low -> low | before -> at` nondeterministic counter abstraction already
 established for `ModelClass`/`ToolClass` in `formal/FORMAL_MODEL.md` Sec. 4.
 It deliberately excludes the goal/invariant completion gate, tool

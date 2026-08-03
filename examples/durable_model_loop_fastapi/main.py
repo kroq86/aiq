@@ -1,4 +1,4 @@
-"""FastAPI + Agentlog + Ollama + Python-tool reference for the 0.2 policy."""
+"""FastAPI + AIQ + Ollama + Python-tool reference for the 0.2 policy."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 
-from agentlog import (
+from aiq import (
     Agent,
     CommandRejected,
     DurableModelLoop,
@@ -22,7 +22,7 @@ from agentlog import (
     SQLiteEventStore,
     ToolRegistry,
 )
-from agentlog.fastapi import AgentlogApplication
+from aiq.fastapi import AIQApplication
 
 
 @dataclass(frozen=True)
@@ -79,7 +79,7 @@ async def build_app(database: Path, *, model: str) -> FastAPI:
     store = await SQLiteEventStore.open(database)
     tools = ToolRegistry.from_functions(get_weather)
     provider = OllamaProvider(model=model)
-    application = AgentlogApplication(store=store, poll_interval_seconds=0.05)
+    application = AIQApplication(store=store, poll_interval_seconds=0.05)
     application.register(
         define_agent(tools),
         resources={"ollama": provider, "default": tools},

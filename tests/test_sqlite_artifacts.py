@@ -8,7 +8,7 @@ from contextlib import closing
 from dataclasses import replace
 from pathlib import Path
 
-from agentlog import (
+from aiq import (
     ArtifactRef,
     ArtifactDigestMismatchError,
     ArtifactVersionConflictError,
