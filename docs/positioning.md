@@ -40,6 +40,31 @@ durable history
 Это гипотеза позиционирования. Она станет реальным преимуществом только после
 появления удобных trace, projection и fork APIs поверх domain events.
 
+## Текущая метка зрелости
+
+> **Single-worker durable guarded execution framework candidate.**
+
+- Подходит для controlled single-worker pilot — один effect-воркер на run,
+  без координации между несколькими воркерами.
+- Внешние side effects требуют downstream idempotency на стороне самого
+  tool/интеграции. At-most-one-committed-result внутри одного воркера —
+  bounded/scenario-проверенное свойство (crash-window модель плюс
+  восстановленные сценарии против реальных Ollama/MCP-крашей), а не
+  exactly-once физическое исполнение.
+- Multi-worker safety пока не заявляется.
+- `EffectDispatchAttempt`/attempt ledger (`src/agentlog/attempts.py`) — это
+  фундамент для будущего lease/claim protocol, а не сам lease protocol;
+  несколько воркеров сейчас могут легитимно создать несколько физических
+  попыток для одной операции.
+- `RunAbstained` bounded model и attempt-telemetry сейчас в `## Unreleased` в
+  `CHANGELOG.md`, а не в выпущенной `0.4.2`.
+- Пять control event types (`GoalSatisfied`/`GoalNotSatisfied`/
+  `WorkflowInvariantViolated`/`WorkflowCycleDetected`/`RunAbstained`) покрыты
+  отдельными bounded-моделями с невакуозными witness'ами и targeted mutants;
+  base trace/bisimulation reference-модель (`formal/model/spec.py`) для этих
+  событий остаётся вакуозной, и composition между локальными моделями не
+  установлена.
+
 ## Restate
 
 [Restate Durable Agents](https://docs.restate.dev/ai/patterns/durable-agents)

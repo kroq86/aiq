@@ -25,6 +25,31 @@ bounded model/provider
 
 Модель или детерминированный provider предлагает один вызов инструмента; всё, что происходит дальше — валидация, guard перехода, само исполнение, нормализация результата и допуск до завершения — управляется явным, детерминированным, durable-кодом. Reference example по умолчанию использует воспроизводимую заглушку, а флаг `--ollama` подключает реальную локальную модель через `OllamaProvider`.
 
+### Текущая метка
+
+> **Single-worker durable guarded execution framework candidate.**
+
+- Подходит для controlled single-worker pilot — один effect-воркер на run,
+  без координации между несколькими воркерами.
+- Внешние side effects по-прежнему требуют downstream idempotency на стороне
+  самого tool/интеграции. Внутри одного воркера at-most-one-committed-result —
+  bounded/scenario-проверенное свойство (crash-window модель плюс отдельные
+  восстановленные сценарии против реальных Ollama/MCP-крашей), а не
+  exactly-once физическое исполнение.
+- Multi-worker safety пока не заявляется.
+- `EffectDispatchAttempt`/attempt ledger (`src/agentlog/attempts.py`) — это
+  фундамент для будущего lease/claim protocol, а не сам lease protocol;
+  несколько воркеров сейчас могут легитимно создать несколько физических
+  попыток для одной операции.
+- `RunAbstained` bounded model и attempt-telemetry сейчас в `## Unreleased` в
+  `CHANGELOG.md`, а не в выпущенной `0.4.2`.
+- Пять control event types (`GoalSatisfied`/`GoalNotSatisfied`/
+  `WorkflowInvariantViolated`/`WorkflowCycleDetected`/`RunAbstained`) покрыты
+  отдельными bounded-моделями с невакуозными witness'ами и targeted mutants;
+  base trace/bisimulation reference-модель (`formal/model/spec.py`) для этих
+  событий остаётся вакуозной, и composition между локальными моделями не
+  установлена.
+
 ## Исторические координаты
 
 [Дмитрий Поспелов в «Ситуационном управлении: теория и практика»](https://djvu.online/file/MKecX5GfcelgX) рассматривал управление сложными объектами, которые неудобно описывать одной жёсткой формальной моделью. Текущую ситуацию нужно представить, сопоставить с классом допустимых решений, выполнить переход и снова наблюдать объект.
