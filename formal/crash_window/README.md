@@ -44,6 +44,9 @@ forever before committing an observation.
 task is cancelled before result commit, fresh agent/resources/dispatcher
 objects are created over the same store, and the request is invoked again. The
 five observed boundaries must belong to `CInv`, every adjacent pair must be in
-the FASM-generated `CTransition`, both physical calls must carry the same
-operation ID, and exactly one result must be committed. This is one executable
-crash/restart scenario, not universal runtime refinement.
+the FASM-generated `CTransition`, the reopened durable attempt ledger must
+contain two dispatch attempts matching the two controlled-provider entries,
+both must carry the same operation ID, and exactly one result must be
+committed. The equality to provider entries is specific to this controlled
+scenario; a general attempt record still does not prove downstream I/O. This
+is one executable crash/restart scenario, not universal runtime refinement.

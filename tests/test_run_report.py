@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 
 from agentlog import (
     CausalTrace,
     DurableDispatcher,
     DurableEffectDispatcher,
     Event,
+    InMemoryEffectAttemptStore,
     InMemoryEventStore,
     ModelLoopLimits,
     ModelMessage,
@@ -37,7 +39,9 @@ class ToolThenFinalProvider:
         )
 
 
-async def _drive_to_completion(agent, runtime, store, stream_id) -> None:
+async def _drive_to_completion(
+    agent, runtime, store, stream_id, *, attempt_store=None
+) -> None:
     reactions = DurableDispatcher(
         agent=runtime.agent, store=store, subscription_name="report:reactions"
     )
@@ -47,6 +51,7 @@ async def _drive_to_completion(agent, runtime, store, stream_id) -> None:
         effects=runtime.effects,
         context=runtime.context,
         subscription_name="report:effects",
+        attempt_store=attempt_store,
     )
     for _ in range(30):
         if not (await reactions.run_once() or await effects.run_once()):
@@ -109,6 +114,106 @@ class RunReportTests(unittest.TestCase):
         self.assertEqual(
             len(payload["latency_seconds"]["tool_call"]), 1
         )
+        self.assertIsNone(payload["idempotency"])
+
+    def test_report_joins_explicit_attempt_telemetry(self) -> None:
+        tools = ToolRegistry.from_functions(get_weather)
+        agent, loop = define(tools)
+        runtime = agent.build_runtime(
+            context={"model": ToolThenFinalProvider(), "tools": tools}
+        )
+        store = InMemoryEventStore()
+        attempt_store = InMemoryEffectAttemptStore()
+        stream_id = run_stream_id("assistant", "report-attempts")
+        run(
+            store.append(
+                stream_id,
+                -1,
+                (
+                    Event(
+                        "RunCreated",
+                        {"agent": "assistant", "definition_version": "1"},
+                    ),
+                    agent.handle_command("message", {"text": "weather"})[0],
+                ),
+            )
+        )
+        run(
+            _drive_to_completion(
+                agent,
+                runtime,
+                store,
+                stream_id,
+                attempt_store=attempt_store,
+            )
+        )
+        service = TraceService(store=store, agents={"assistant": runtime.agent})
+        trace = run(service.export("assistant", "report-attempts"))
+        attempts = run(attempt_store.load_for_stream(stream_id))
+        tool_request = next(
+            event
+            for event in trace.events
+            if event.event_type == "ToolCallRequested"
+        )
+        run(
+            attempt_store.record_start(
+                operation_id=tool_request.operation_id,
+                stream_id=tool_request.stream_id,
+                request_event_type=tool_request.event_type,
+                request_global_position=tool_request.global_position,
+                subscription_name="report:effects",
+            )
+        )
+        attempts = run(attempt_store.load_for_stream(stream_id))
+
+        report = build_run_report(trace, effect_attempts=attempts)
+        metrics = report.effect_attempt_metrics
+
+        self.assertIsNotNone(metrics)
+        self.assertEqual(metrics.attempt_count, 4)
+        self.assertEqual(metrics.operation_count, 3)
+        self.assertEqual(metrics.retried_operation_count, 1)
+        self.assertEqual(metrics.retry_attempt_count, 1)
+        self.assertEqual(metrics.max_attempts_per_operation, 2)
+        self.assertEqual(
+            metrics.attempt_count_by_event_type,
+            {"ModelCallRequested": 2, "ToolCallRequested": 2},
+        )
+        payload = run_report_to_json(report)
+        self.assertEqual(
+            payload["idempotency"],
+            {
+                "observation_kind": "durable-dispatch-attempt",
+                "dispatch_attempt_count": 4,
+                "operation_count": 3,
+                "retried_operation_count": 1,
+                "retry_attempt_count": 1,
+                "max_attempts_per_operation": 2,
+                "dispatch_attempt_count_by_event_type": {
+                    "ModelCallRequested": 2,
+                    "ToolCallRequested": 2,
+                },
+            },
+        )
+
+        observed_zero = build_run_report(trace, effect_attempts=())
+        self.assertEqual(observed_zero.effect_attempt_metrics.attempt_count, 0)
+        self.assertIsNone(build_run_report(trace).effect_attempt_metrics)
+
+        with self.assertRaisesRegex(ValueError, "does not identify"):
+            build_run_report(
+                trace,
+                effect_attempts=(
+                    replace(attempts[0], operation_id="unknown-operation"),
+                ),
+            )
+        with self.assertRaisesRegex(ValueError, "does not match trace"):
+            build_run_report(
+                trace,
+                effect_attempts=(
+                    replace(attempts[0], stream_id="assistant:other-run"),
+                ),
+            )
 
     def test_report_is_neutral_when_no_control_policy_is_configured(self) -> None:
         tools = ToolRegistry.from_functions(get_weather)

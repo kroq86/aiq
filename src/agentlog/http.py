@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from .attempts import EffectAttemptStore
 from .core import EventStore
 from .fastapi import (
     AgentRuntime,
@@ -38,6 +39,7 @@ def create_app(
     store: EventStore,
     runtimes: Mapping[str, AgentRuntime],
     shutdown_timeout_seconds: float = SHUTDOWN_TIMEOUT_SECONDS,
+    attempt_store: EffectAttemptStore | None = None,
 ) -> FastAPI:
     """Standalone convenience: one `Agentlog` integration, its own
     dedicated `FastAPI` app, routes at `/agents/...` with no extra prefix.
@@ -49,6 +51,7 @@ def create_app(
         store=store,
         runtimes=runtimes,
         shutdown_timeout_seconds=shutdown_timeout_seconds,
+        attempt_store=attempt_store,
     )
     app = FastAPI(lifespan=integration.lifespan)
     app.include_router(integration.router)

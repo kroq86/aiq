@@ -56,6 +56,7 @@ except ModuleNotFoundError as error:  # pragma: no cover - exercised via core-on
     ) from error
 
 from .application import AgentRuntime, default_serialize_state
+from .attempts import EffectAttemptStore
 from .core import Event, EventEnvelope, EventStore, JsonValue, VersionConflictError
 from .runtime import (
     AgentDefinition,
@@ -262,6 +263,7 @@ class Agentlog:
         route_prefix: str = "/agents",
         poll_interval_seconds: float = POLL_INTERVAL_SECONDS,
         shutdown_timeout_seconds: float = SHUTDOWN_TIMEOUT_SECONDS,
+        attempt_store: EffectAttemptStore | None = None,
     ) -> None:
         for name, runtime in runtimes.items():
             if runtime.agent.name != name:
@@ -308,6 +310,7 @@ class Agentlog:
                     name, runtime.definition_version, "effects"
                 ),
                 owns_stream=partial(agent_owns_stream, name),
+                attempt_store=attempt_store,
             )
             for name, runtime in self._runtimes.items()
         ]

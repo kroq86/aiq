@@ -437,6 +437,13 @@ operation_id(Повтор(q)) = operation_id(q)
 
 Поэтому гарантия строится не вокруг фантазии о выполнении «ровно один раз», а вокруг асимметрии двух контуров. Операционный контур допускает повтор, потому что среда могла принять запрос без подтверждения. Контур фиксации запрещает раздвоение принятого результата, потому что два итоговых наблюдения с одной идентичностью сделали бы дальнейшее состояние неоднозначным. Идемпотентность внешнего переходника уменьшает цену повтора, но не заменяет эту границу и не превращает физическое исполнение в транзакцию `EventStore`.
 
+Поддерживаемое deployment assumption без внешней координации — один активный
+effect worker на canonical subscription версии агента. Несколько workers могут
+одновременно начать один handler до продвижения общего checkpoint и тем самым
+повторить внешний effect. Для multi-worker single-flight нужен внешний
+lease/fencing protocol; стабильный `operation_id` и downstream idempotency при
+этом всё равно обязательны.
+
 Для `save_report` первая попытка может выполнить запись в MinIO и завершиться до регистрации в SQLite. Новая среда исполнения повторяет операцию с детерминированным ключом объекта, проверяет точную версию, идемпотентно регистрирует ту же `ArtifactRef` и фиксирует один результат. Рабочий журнал вызовов при этом обязан сохранить обе попытки.
 
 Модель: [`formal/crash_window`](formal/crash_window/README.md), контракт среды исполнения: [внешние действия](docs/effects.md).
@@ -616,8 +623,12 @@ PYTHONPATH=src python3 examples/chat_mcp_agent/main.py
   agentlog.EffectRegistry
   agentlog.EffectContext
   agentlog.effect_request
+  agentlog.InMemoryEffectAttemptStore
+  agentlog.SQLiteEffectAttemptStore
+  agentlog.build_effect_attempt_metrics
   agentlog.TraceService
   agentlog.build_causal_trace
+  agentlog.build_run_report
   agentlog.trace_to_json
   agentlog.MCPTool
 

@@ -170,6 +170,86 @@ Fault-injection test создаёт SQLite trigger, который ломает 
 - operation ID остаётся тем же;
 - после retry в canonical stream находится один result event.
 
+## Durable dispatch-attempt telemetry
+
+Опциональный `EffectAttemptStore` фиксирует operational fact непосредственно
+после проверки canonical `operation_id` и перед входом в effect handler:
+
+```text
+validate effect request
+-> append EffectDispatchAttempt
+-> invoke handler
+-> commit result events + checkpoint
+```
+
+Это не domain event и не часть atomic result/checkpoint transaction. Запись
+означает только: dispatcher durably recorded an imminent handler invocation.
+Она не доказывает, что downstream HTTP/MCP/provider call начался, завершился
+или был дедуплицирован.
+
+```python
+attempt_store = await SQLiteEffectAttemptStore.open("agentlog.db")
+worker = DurableEffectDispatcher(
+    ...,
+    attempt_store=attempt_store,
+)
+```
+
+Без `attempt_store` runtime работает как раньше и не платит дополнительную
+стоимость. С настроенным store действует fail-closed invariant:
+
+```text
+HandlerInvocation => AttemptRecorded
+```
+
+Если append attempt не удался, handler не запускается, effect checkpoint не
+продвигается, ошибка выходит из `run_once()`. Это сознательная
+availability-for-evidence развилка: иначе committed handler result мог бы
+существовать без attempt fact, а нулевой count нельзя было бы отличить от
+потерянной telemetry.
+
+Ограничения:
+
+- crash после attempt commit, но до handler/downstream entry оставляет
+  attempt-without-I/O и может завысить count;
+- crash после внешнего эффекта, но до result commit приводит к следующему
+  attempt с тем же `operation_id`;
+- commit-only `VersionConflictError` не создаёт новый attempt, потому что
+  handler не вызывается повторно;
+- foreign streams, terminal runs и события без зарегистрированного handler не
+  создают attempts;
+- несколько workers без lease/single-flight могут честно записать несколько
+  attempts для одной operation;
+- SQLite telemetry добавляет отдельную durable transaction перед каждым
+  handler invocation.
+
+`build_run_report(..., effect_attempts=...)` агрегирует только явно переданные
+records. `effect_attempts=None` означает «telemetry не наблюдалась», а пустой
+tuple означает «наблюдалась, attempts не было». Эти метрики нельзя называть
+точным physical-call count или provider dedup-hit count.
+
+### Deployment contract
+
+Без внешней координации поддерживаемое operational assumption — не более
+одного активного `DurableEffectDispatcher` для canonical effect subscription
+конкретной версии агента:
+
+```text
+{agent_name}:{definition_version}:effects
+```
+
+Несколько процессов с одним `subscription_name` могут одновременно прочитать
+один pending request и вызвать handler до того, как один из них продвинет
+общий checkpoint. Shared checkpoint защищает committed progression, но не
+отменяет уже начатые внешние effects. Разные subscription names являются
+независимыми consumers и вообще не должны использоваться как replicas одного
+effect worker.
+
+Поэтому multi-worker deployment, которому требуется single-flight внешнего
+effect, обязан предоставить внешний lease/fencing protocol. Stable
+`operation_id` и downstream idempotency всё равно остаются обязательными:
+lease уменьшает конкурентные повторы, но не устраняет crash window.
+
 ## Dependency injection
 
 Adapters передаются явно:
@@ -263,7 +343,7 @@ terminal_event_types={
 - leases;
 - single-flight между несколькими worker processes;
 - exponential retry schedule;
-- persisted attempt counters;
+- точные downstream physical-call counters;
 - timeout classification hierarchy;
 - human approval для non-idempotent effects;
 - компенсации;

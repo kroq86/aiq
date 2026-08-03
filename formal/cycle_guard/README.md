@@ -48,8 +48,8 @@ Not established by this model:
   counters;
 - anything about `GoalSatisfied`/`GoalNotSatisfied`/
   `WorkflowInvariantViolated`/`RunAbstained` -- those are outside this model.
-  The first three now have a separate local model in
-  `formal/completion_gate/`; `RunAbstained` remains unmodeled;
+  The first three have a separate local model in `formal/completion_gate/`;
+  abstention routing has one in `formal/run_abstained/`;
 - universal runtime refinement of `_cycle_failure` -- see
   `tests/test_v04_constrained_execution_e2e.py`'s
   `V04ControlRestartEquivalenceTests` for the separate, scenario-level

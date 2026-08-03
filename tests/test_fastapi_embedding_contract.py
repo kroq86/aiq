@@ -21,7 +21,14 @@ with warnings.catch_warnings():
     )
     from fastapi.testclient import TestClient
 
-from agentlog import AgentDefinition, EffectContext, EffectRegistry, Event, InMemoryEventStore
+from agentlog import (
+    AgentDefinition,
+    EffectContext,
+    EffectRegistry,
+    Event,
+    InMemoryEffectAttemptStore,
+    InMemoryEventStore,
+)
 from agentlog.fastapi import AgentRuntime, Agentlog, compose_lifespans
 from agentlog.http import create_app
 
@@ -41,6 +48,25 @@ def _runtime(name: str = "assistant") -> AgentRuntime:
 
 
 class FastAPIEmbeddingContractTests(unittest.TestCase):
+    def test_attempt_store_is_forwarded_only_to_effect_dispatchers(
+        self,
+    ) -> None:
+        attempt_store = InMemoryEffectAttemptStore()
+        integration = Agentlog(
+            store=InMemoryEventStore(),
+            runtimes={"assistant": _runtime()},
+            attempt_store=attempt_store,
+        )
+
+        self.assertEqual(len(integration._effect_dispatchers), 1)
+        self.assertIs(
+            integration._effect_dispatchers[0]._attempt_store,
+            attempt_store,
+        )
+        self.assertFalse(
+            hasattr(integration._reaction_dispatchers[0], "_attempt_store")
+        )
+
     def test_core_package_import_does_not_import_fastapi(self) -> None:
         script = """
 import builtins

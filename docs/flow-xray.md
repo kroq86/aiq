@@ -104,6 +104,11 @@ Agentlog JSON.
   Если Flow Xray умеет сопоставлять domain event с конкретным runtime call
   subtree (см. предложенный мост ниже), это отдельный, более поздний шаг,
   требующий проверки реальной схемы Flow Xray.
+- **Effect-attempt ledger — только фундамент для correlation.** Опциональные
+  `EffectDispatchAttempt` records связываются с request event через
+  `operation_id` и показывают durable dispatcher-attempt facts. Они не входят
+  в `domain-event-history` schema, не содержат Python call subtree/runtime
+  span ID и не доказывают вход во внешний HTTP/MCP/provider.
 - **Trace — inspectable history, не cryptographic tamper evidence.** Экспорт
   доказывает то, что реально сохранено в SQLite (append-only на уровне схемы,
   see `docs/effects.md`), но не является подписанным/hash-chained proof

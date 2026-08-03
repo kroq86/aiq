@@ -8,6 +8,34 @@ correctness claims.
 
 No changes yet.
 
+## 0.4.3 - 2026-08-03
+
+### Added
+
+- Standalone RunAbstained bounded model covering request/result
+  validation-failure routing in 8 reachable states, with five targeted mutants
+  killed.
+- Opt-in append-only effect-dispatch attempt ledger with fail-closed recording,
+  stable operation-ID correlation, and explicitly supplied RunReport
+  aggregates.
+
+### Changed
+
+- The supported deployment contract now explicitly requires one active effect
+  worker per canonical subscription unless an external lease/fencing protocol
+  provides single-flight coordination.
+- Crash-window runtime refinement now correlates controlled provider entries
+  with the real durable attempt ledger.
+- Contribution guidance now requires narrow executable contracts, mutation
+  sensitivity, runtime scenarios, and explicit unproved boundaries for
+  safety-critical transitions.
+
+### Boundaries
+
+- This release does not provide multi-worker ownership, lease/fencing,
+  transactional outbox delivery, exact external-call counts, provider-side
+  deduplication, universal runtime refinement, or composition of local models.
+
 ## 0.4.2 - 2026-08-03
 
 ### Added

@@ -157,7 +157,7 @@ the same properties (not a reference-model proof) lives in
 `tests/test_v04_constrained_execution_e2e.py::V04ControlRestartEquivalenceTests`
 and the targeted mutation table in `docs/release-evidence-0.4.md`.
 
-Two narrow slices of this gap have since been checked as *separate* standalone
+Three narrow slices of this gap have since been checked as *separate* standalone
 small models rather than by extending `spec.py` (same convention as
 `formal/middleware/` and `formal/sequence/`, no `setdb` dependency):
 
@@ -165,12 +165,16 @@ small models rather than by extending `spec.py` (same convention as
   `WorkflowCycleDetected` reachable and two killed targeted mutants;
 - `formal/completion_gate/` covers the independent configured/not-configured
   invariant and goal axes in 15 reachable states, with all three gate events
-  reachable and five killed targeted mutants.
+  reachable and five killed targeted mutants;
+- `formal/run_abstained/` covers request/result validation-failure routing in
+  8 reachable states, with both terminal outcomes reachable and five killed
+  targeted mutants.
 
-Neither local model modifies `spec.py` or establishes universal runtime
-refinement. `RunAbstained` remains unmodeled, and the composition question of
-whether these local checks combine with the base lifecycle remains open. See
-each model's README for its precise scope.
+None of these local models modifies `spec.py` or establishes universal runtime
+refinement. `RunAbstained` therefore remains unreachable in that base reference
+model even though it is non-vacuously covered by its standalone model. The
+composition question of whether these local checks combine with the base
+lifecycle remains open. See each model's README for its precise scope.
 
 ## 3. Concrete single-run integration model
 

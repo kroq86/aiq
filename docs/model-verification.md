@@ -157,14 +157,17 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests/model -t . -v
 
 ## Standalone local bounded models
 
-Two optional v0.4 controls are checked in small pure-Python finite models that
+Three optional v0.4 controls are checked in small pure-Python finite models that
 do not require `setdb`:
 
 - `formal/cycle_guard/`: repeated-state guard, 30 reachable states, two killed
   targeted mutants;
 - `formal/completion_gate/`: independent invariant/goal configuration axes,
   15 reachable states, all material gate events witnessed, five killed
-  targeted mutants.
+  targeted mutants;
+- `formal/run_abstained/`: request/result validation-failure routing,
+  8 reachable states, both terminal outcomes witnessed, five killed targeted
+  mutants.
 
 These are local bounded-exhaustive checks. They do not modify the trace
 reference interpreter, prove arbitrary Python predicates, or establish

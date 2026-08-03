@@ -217,7 +217,8 @@ exactly-once physical execution.
   - [Validation decision](../src/agentlog/validation.py)
   - [Abstention scenarios](../tests/test_v04_constrained_execution_e2e.py)
   - [Run report](../src/agentlog/report.py)
-- Boundary: Agentlog does not perform retrieval and does not calculate false-abstention or unsafe-answer rates.
+  - [RunAbstained bounded model](../formal/run_abstained/README.md)
+- Boundary: Agentlog does not perform retrieval and does not calculate false-abstention or unsafe-answer rates. The bounded model checks local routing, not the quality of the application policy.
 - Not proved: Abstention quality on a labelled negative-query dataset is not established.
 
 ## Ticket 30: Prompt injection through retrieved data
@@ -357,11 +358,12 @@ exactly-once physical execution.
 ## Ticket 42: Retry, replan, abstain, and fail
 - Status: `partial`
 - Levels: `agent`, `workflow`
-- Answer: `ValidationDecision` durably distinguishes accept, reject, retry, replan, abstain, and fail; abstain/fail have distinct terminal handling, while retry and replan currently share the same next-model-turn transition with different recorded status.
+- Answer: `ValidationDecision` durably distinguishes accept, reject, retry, replan, abstain, and fail; abstain/fail have distinct terminal handling that is independently checked in a standalone bounded model, while retry and replan currently share the same next-model-turn transition with different recorded status.
 - Evidence:
   - [Decision type](../src/agentlog/validation.py)
   - [Decision-path tests](../tests/test_v04_constrained_execution_e2e.py)
-- Boundary: The runtime preserves retry/replan intent as evidence but does not yet model them as different workflow states; neither means automatic safe repetition of a physical external effect.
+  - [RunAbstained bounded model](../formal/run_abstained/README.md)
+- Boundary: The runtime preserves retry/replan intent as evidence but does not yet model them as different workflow states; neither means automatic safe repetition of a physical external effect. The local bounded model begins after validation failure is committed and does not prove policy correctness or runtime refinement.
 - Not proved: Distinct status strings do not prove a different replanning strategy or an improved trajectory.
 
 ## Ticket 43: Async Python artifact boundaries
@@ -389,13 +391,15 @@ exactly-once physical execution.
 ## Ticket 45: Idempotency and durable execution
 - Status: `partial`
 - Levels: `workflow`, `metrics`
-- Answer: A durable request has a stable `operation_id`; dispatcher result/checkpoint commit is atomic and restart may retry the same physical effect with that identity.
+- Answer: A durable request has a stable `operation_id`; dispatcher result/checkpoint commit is atomic, and an opt-in append-only operational ledger records imminent handler dispatch attempts across restarts with that identity.
 - Evidence:
   - [Effect semantics](effects.md)
+  - [Attempt ledger](../src/agentlog/attempts.py)
+  - [Attempt ledger tests](../tests/test_effect_attempts.py)
   - [Crash-window model](../formal/crash_window/)
   - [Crash-window equivalence tests](../tests/test_crash_window_equivalence.py)
-- Boundary: Agentlog guarantees at-most-one committed result per request, not exactly-once physical execution or provider-side deduplication.
-- Not proved: Duplicate attempts, dedup hits, replay counts, and effect retries are not production metrics.
+- Boundary: Agentlog guarantees at-most-one committed result per request, not exactly-once physical execution or provider-side deduplication. A durable dispatch-attempt record precedes handler entry and therefore may overcount if the process dies in that boundary.
+- Not proved: Exact downstream calls, provider dedup hits, subscription replay counts, and external outcomes are not observable from the ledger.
 
 ## Ticket 46: Event sourcing and transactional outbox
 - Status: `partial`
@@ -411,12 +415,12 @@ exactly-once physical execution.
 ## Ticket 47: Production deployment and observability
 - Status: `partial`
 - Levels: `metrics`
-- Answer: Agentlog exports causal domain traces, replayable SSE, health state, eval summaries, and a derived run report.
+- Answer: Agentlog exports causal domain traces, replayable SSE, health state, eval summaries, a derived run report, and optional operation-ID-correlated durable dispatch-attempt aggregates.
 - Evidence:
   - [Causal trace](../src/agentlog/trace.py)
   - [Flow X-Ray contract](flow-xray.md)
   - [Run report](../src/agentlog/report.py)
   - [Run report tests](../tests/test_run_report.py)
-- Boundary: The package has no OpenTelemetry instrumentation, Prometheus exporter, SLOs, alerts, dashboards, HPA/deployment manifests, or rollout playbook.
+- Boundary: Attempt telemetry is an opt-in SQLite/in-memory operational ledger, not OpenTelemetry or a Prometheus exporter. The package still has no SLOs, alerts, dashboards, HPA/deployment manifests, or rollout playbook.
 - Not proved: Domain-event causality is not an end-to-end distributed production trace or quality-monitoring stack.
 

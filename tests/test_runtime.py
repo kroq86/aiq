@@ -17,6 +17,7 @@ from agentlog import (
     EffectRegistry,
     Event,
     EventEnvelope,
+    InMemoryEffectAttemptStore,
     InMemoryEventStore,
     SQLiteEventStore,
     effect_request,
@@ -693,6 +694,7 @@ class DurableEffectDispatcherTests(unittest.TestCase):
 
     def test_uncommitted_effect_failure_is_retried_at_least_once(self) -> None:
         store = run(SQLiteEventStore.open(self.path))
+        attempt_store = InMemoryEffectAttemptStore()
         agent = build_chat_agent()
         effects = EffectRegistry[ChatState]()
         attempts = 0
@@ -712,6 +714,7 @@ class DurableEffectDispatcherTests(unittest.TestCase):
             context=EffectContext({}),
             subscription_name="effects",
             owns_stream=own_all_streams,
+            attempt_store=attempt_store,
         )
         run(
             store.append(
@@ -726,11 +729,156 @@ class DurableEffectDispatcherTests(unittest.TestCase):
 
         self.assertEqual(run(store.load_checkpoint("effects")), 0)
         self.assertEqual(len(run(store.load("run-1"))), 1)
+        self.assertEqual(
+            len(run(attempt_store.load_for_stream("run-1"))), 1
+        )
         self.assertIs(run(worker.run_once()), True)
         self.assertEqual(attempts, 2)
+        recorded = run(attempt_store.load_for_stream("run-1"))
+        self.assertEqual(
+            [attempt.attempt_number for attempt in recorded], [1, 2]
+        )
+        self.assertEqual(
+            {attempt.operation_id for attempt in recorded},
+            {
+                str(
+                    next(
+                        item.event.event_id
+                        for item in run(store.load("run-1"))
+                        if item.event.event_type == "ModelCallRequested"
+                    )
+                )
+            },
+        )
         self.assertEqual(
             [item.event.event_type for item in run(store.load("run-1"))],
             ["ModelCallRequested", "ModelCallSucceeded"],
+        )
+
+    def test_configured_attempt_store_failure_blocks_handler(self) -> None:
+        class FailingAttemptStore:
+            async def record_start(self, **kwargs):
+                raise RuntimeError("attempt ledger unavailable")
+
+            async def load_for_stream(self, stream_id):
+                return ()
+
+        store = InMemoryEventStore()
+        agent = build_chat_agent()
+        effects = EffectRegistry[ChatState]()
+        handler_calls = 0
+
+        @effects.effect("ModelCallRequested")
+        async def call_model(event: Event, state: ChatState, context: EffectContext):
+            nonlocal handler_calls
+            handler_calls += 1
+            return [Event("ModelCallSucceeded", {})]
+
+        run(
+            store.append(
+                "run-1",
+                -1,
+                [effect_request("ModelCallRequested", {})],
+            )
+        )
+        worker = DurableEffectDispatcher(
+            agent=agent,
+            store=store,
+            effects=effects,
+            context=EffectContext({}),
+            subscription_name="effects",
+            owns_stream=own_all_streams,
+            attempt_store=FailingAttemptStore(),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "ledger unavailable"):
+            run(worker.run_once())
+
+        self.assertEqual(handler_calls, 0)
+        self.assertEqual(run(store.load_checkpoint("effects")), 0)
+        self.assertEqual(len(run(store.load("run-1"))), 1)
+
+    def test_non_dispatch_paths_do_not_record_attempts(self) -> None:
+        attempt_store = InMemoryEffectAttemptStore()
+        agent = build_chat_agent()
+        effects = EffectRegistry[ChatState]()
+        handler_calls = 0
+
+        @effects.effect("ModelCallRequested")
+        async def call_model(event: Event, state: ChatState, context: EffectContext):
+            nonlocal handler_calls
+            handler_calls += 1
+            return [Event("ModelCallSucceeded", {})]
+
+        foreign_store = InMemoryEventStore()
+        run(
+            foreign_store.append(
+                "other-agent:run-1",
+                -1,
+                [effect_request("ModelCallRequested", {})],
+            )
+        )
+        foreign_worker = DurableEffectDispatcher(
+            agent=agent,
+            store=foreign_store,
+            effects=effects,
+            context=EffectContext({}),
+            subscription_name="foreign-effects",
+            attempt_store=attempt_store,
+        )
+        self.assertIs(run(foreign_worker.run_once()), True)
+
+        unregistered_store = InMemoryEventStore()
+        run(
+            unregistered_store.append(
+                "run-unregistered",
+                -1,
+                [effect_request("UnregisteredRequested", {})],
+            )
+        )
+        unregistered_worker = DurableEffectDispatcher(
+            agent=agent,
+            store=unregistered_store,
+            effects=effects,
+            context=EffectContext({}),
+            subscription_name="unregistered-effects",
+            owns_stream=own_all_streams,
+            attempt_store=attempt_store,
+        )
+        self.assertIs(run(unregistered_worker.run_once()), True)
+
+        terminal_store = InMemoryEventStore()
+        run(
+            terminal_store.append(
+                "run-terminal",
+                -1,
+                [
+                    Event("RunCompleted", {}),
+                    effect_request("ModelCallRequested", {}),
+                ],
+            )
+        )
+        terminal_worker = DurableEffectDispatcher(
+            agent=agent,
+            store=terminal_store,
+            effects=effects,
+            context=EffectContext({}),
+            subscription_name="terminal-effects",
+            owns_stream=own_all_streams,
+            attempt_store=attempt_store,
+        )
+        self.assertIs(run(terminal_worker.run_once()), True)
+        self.assertIs(run(terminal_worker.run_once()), True)
+
+        self.assertEqual(handler_calls, 0)
+        self.assertEqual(
+            run(attempt_store.load_for_stream("other-agent:run-1")), ()
+        )
+        self.assertEqual(
+            run(attempt_store.load_for_stream("run-unregistered")), ()
+        )
+        self.assertEqual(
+            run(attempt_store.load_for_stream("run-terminal")), ()
         )
 
     def test_effect_dispatch_reloads_history_once_before_committing(
@@ -799,6 +947,7 @@ class DurableEffectDispatcherTests(unittest.TestCase):
         self,
     ) -> None:
         store = run(SQLiteEventStore.open(self.path))
+        attempt_store = InMemoryEffectAttemptStore()
         agent = build_chat_agent()
         effects = EffectRegistry[ChatState]()
         operation_ids: list[str] = []
@@ -836,6 +985,7 @@ class DurableEffectDispatcherTests(unittest.TestCase):
             context=EffectContext({}),
             subscription_name="effects",
             owns_stream=own_all_streams,
+            attempt_store=attempt_store,
         )
         with self.assertRaisesRegex(sqlite3.IntegrityError, "checkpoint failure"):
             run(worker.run_once())
@@ -852,6 +1002,14 @@ class DurableEffectDispatcherTests(unittest.TestCase):
 
         self.assertIs(run(worker.run_once()), True)
         self.assertEqual(operation_ids, [str(request.event_id), str(request.event_id)])
+        recorded = run(attempt_store.load_for_stream("run-1"))
+        self.assertEqual(
+            [
+                (attempt.operation_id, attempt.attempt_number)
+                for attempt in recorded
+            ],
+            [(str(request.event_id), 1), (str(request.event_id), 2)],
+        )
         self.assertEqual(
             [item.event.event_type for item in run(store.load("run-1"))],
             ["ModelCallRequested", "ModelCallSucceeded"],
@@ -978,6 +1136,7 @@ class DurableEffectDispatcherTests(unittest.TestCase):
             return state
 
         effects = EffectRegistry[AgentState]()
+        attempt_store = InMemoryEffectAttemptStore()
 
         @effects.effect("ModelCallRequested")
         async def call_model(event: Event, state: AgentState, context: EffectContext):
@@ -1017,11 +1176,15 @@ class DurableEffectDispatcherTests(unittest.TestCase):
             context=EffectContext({}),
             subscription_name="effects",
             owns_stream=own_all_streams,
+            attempt_store=attempt_store,
         )
 
         advanced = run(dispatcher.run_once())
         self.assertTrue(advanced)
         self.assertEqual(call_count, 1)
+        self.assertEqual(
+            len(run(attempt_store.load_for_stream("run-1"))), 1
+        )
 
         history = run(store.load("run-1"))
         self.assertEqual(

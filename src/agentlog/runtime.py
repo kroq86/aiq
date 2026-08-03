@@ -9,6 +9,7 @@ from types import MappingProxyType
 from typing import Any, Generic, TypeVar
 from uuid import UUID, uuid4
 
+from .attempts import EffectAttemptStore
 from .core import Event, EventEnvelope, EventStore, JsonValue, VersionConflictError
 from .streams import agent_owns_stream
 
@@ -526,6 +527,7 @@ class DurableEffectDispatcher(Generic[State]):
         context: EffectContext,
         subscription_name: str,
         owns_stream: StreamOwnership | None = None,
+        attempt_store: EffectAttemptStore | None = None,
     ) -> None:
         if not subscription_name:
             raise ValueError("subscription_name must not be empty")
@@ -534,6 +536,7 @@ class DurableEffectDispatcher(Generic[State]):
         self._effects = effects
         self._context = context
         self._subscription_name = subscription_name
+        self._attempt_store = attempt_store
         self._owns_stream = owns_stream or partial(
             agent_owns_stream,
             agent.name,
@@ -590,6 +593,14 @@ class DurableEffectDispatcher(Generic[State]):
             outputs: tuple[Event, ...] = ()
         else:
             operation_id = _validate_effect_request(consumed.event)
+            if self._attempt_store is not None:
+                await self._attempt_store.record_start(
+                    operation_id=operation_id,
+                    stream_id=consumed.stream_id,
+                    request_event_type=consumed.event.event_type,
+                    request_global_position=consumed.global_position,
+                    subscription_name=self._subscription_name,
+                )
             raw_outputs = tuple(
                 await handler(consumed.event, state, self._context)
             )

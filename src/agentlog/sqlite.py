@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Self
 from uuid import UUID
 
+from .attempts import EffectDispatchAttempt, _new_attempt
 from .core import (
     CheckpointConflictError,
     DuplicateEventError,
@@ -55,6 +56,40 @@ CREATE TABLE IF NOT EXISTS subscription_checkpoints (
     global_position INTEGER NOT NULL CHECK (global_position >= 0),
     updated_at TEXT NOT NULL
 );
+"""
+
+_ATTEMPT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS effect_attempts (
+    attempt_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    attempt_id TEXT NOT NULL UNIQUE,
+    operation_id TEXT NOT NULL CHECK (operation_id <> ''),
+    attempt_number INTEGER NOT NULL CHECK (attempt_number > 0),
+    stream_id TEXT NOT NULL CHECK (stream_id <> ''),
+    request_event_type TEXT NOT NULL CHECK (request_event_type <> ''),
+    request_global_position INTEGER NOT NULL
+        CHECK (request_global_position > 0),
+    subscription_name TEXT NOT NULL CHECK (subscription_name <> ''),
+    started_at TEXT NOT NULL,
+    UNIQUE (operation_id, attempt_number)
+);
+
+CREATE INDEX IF NOT EXISTS effect_attempts_by_stream
+ON effect_attempts (stream_id, attempt_sequence);
+
+CREATE INDEX IF NOT EXISTS effect_attempts_by_operation
+ON effect_attempts (operation_id, attempt_number);
+
+CREATE TRIGGER IF NOT EXISTS effect_attempts_are_append_only_update
+BEFORE UPDATE ON effect_attempts
+BEGIN
+    SELECT RAISE(ABORT, 'effect attempts are append-only');
+END;
+
+CREATE TRIGGER IF NOT EXISTS effect_attempts_are_append_only_delete
+BEFORE DELETE ON effect_attempts
+BEGIN
+    SELECT RAISE(ABORT, 'effect attempts are append-only');
+END;
 """
 
 
@@ -579,6 +614,222 @@ def _row_to_envelope(row: sqlite3.Row) -> EventEnvelope:
             event_id=UUID(str(row["event_id"])),
         ),
         created_at=datetime.fromisoformat(str(row["created_at"])),
+    )
+
+
+class SQLiteEffectAttemptStore:
+    """Durable append-only operational attempt ledger.
+
+    The table may share a SQLite file with ``SQLiteEventStore`` but uses a
+    separate transaction and is not part of the domain event stream.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self._path = path
+
+    @classmethod
+    async def open(cls, path: str | Path) -> Self:
+        resolved = Path(path)
+        if resolved == Path(":memory:"):
+            raise ValueError(
+                "SQLiteEffectAttemptStore requires a file path for durable storage"
+            )
+        store = cls(resolved)
+        await asyncio.to_thread(store._initialize)
+        return store
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self._path, timeout=5.0)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA busy_timeout = 5000")
+        return connection
+
+    def _initialize(self) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        connection = self._connect()
+        try:
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("PRAGMA synchronous = FULL")
+            connection.executescript(_ATTEMPT_SCHEMA)
+            connection.commit()
+        finally:
+            connection.close()
+
+    async def record_start(
+        self,
+        *,
+        operation_id: str,
+        stream_id: str,
+        request_event_type: str,
+        request_global_position: int,
+        subscription_name: str,
+    ) -> EffectDispatchAttempt:
+        return await asyncio.to_thread(
+            self._record_start_sync,
+            operation_id,
+            stream_id,
+            request_event_type,
+            request_global_position,
+            subscription_name,
+        )
+
+    def _record_start_sync(
+        self,
+        operation_id: str,
+        stream_id: str,
+        request_event_type: str,
+        request_global_position: int,
+        subscription_name: str,
+    ) -> EffectDispatchAttempt:
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT
+                    attempt_number,
+                    stream_id,
+                    request_event_type,
+                    request_global_position
+                FROM effect_attempts
+                WHERE operation_id = ?
+                ORDER BY attempt_number DESC
+                LIMIT 1
+                """,
+                (operation_id,),
+            ).fetchone()
+            if row is not None and (
+                str(row["stream_id"]) != stream_id
+                or str(row["request_event_type"]) != request_event_type
+                or int(row["request_global_position"])
+                != request_global_position
+            ):
+                raise ValueError(
+                    "effect attempt request identity changed for operation "
+                    f"{operation_id!r}"
+                )
+            attempt = _new_attempt(
+                operation_id=operation_id,
+                attempt_number=(
+                    1 if row is None else int(row["attempt_number"]) + 1
+                ),
+                stream_id=stream_id,
+                request_event_type=request_event_type,
+                request_global_position=request_global_position,
+                subscription_name=subscription_name,
+            )
+            connection.execute(
+                """
+                INSERT INTO effect_attempts (
+                    attempt_id,
+                    operation_id,
+                    attempt_number,
+                    stream_id,
+                    request_event_type,
+                    request_global_position,
+                    subscription_name,
+                    started_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(attempt.attempt_id),
+                    attempt.operation_id,
+                    attempt.attempt_number,
+                    attempt.stream_id,
+                    attempt.request_event_type,
+                    attempt.request_global_position,
+                    attempt.subscription_name,
+                    attempt.started_at.isoformat(),
+                ),
+            )
+            connection.commit()
+            return attempt
+        except BaseException:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    async def load_for_stream(
+        self, stream_id: str
+    ) -> tuple[EffectDispatchAttempt, ...]:
+        if not stream_id:
+            raise ValueError("stream_id must not be empty")
+        return await asyncio.to_thread(self._load_for_stream_sync, stream_id)
+
+    def _load_for_stream_sync(
+        self, stream_id: str
+    ) -> tuple[EffectDispatchAttempt, ...]:
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                """
+                SELECT
+                    attempt_id,
+                    operation_id,
+                    attempt_number,
+                    stream_id,
+                    request_event_type,
+                    request_global_position,
+                    subscription_name,
+                    started_at
+                FROM effect_attempts
+                WHERE stream_id = ?
+                ORDER BY attempt_sequence
+                """,
+                (stream_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+        return tuple(_row_to_attempt(row) for row in rows)
+
+    async def load_for_operation(
+        self, operation_id: str
+    ) -> tuple[EffectDispatchAttempt, ...]:
+        if not operation_id:
+            raise ValueError("operation_id must not be empty")
+        return await asyncio.to_thread(
+            self._load_for_operation_sync, operation_id
+        )
+
+    def _load_for_operation_sync(
+        self, operation_id: str
+    ) -> tuple[EffectDispatchAttempt, ...]:
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                """
+                SELECT
+                    attempt_id,
+                    operation_id,
+                    attempt_number,
+                    stream_id,
+                    request_event_type,
+                    request_global_position,
+                    subscription_name,
+                    started_at
+                FROM effect_attempts
+                WHERE operation_id = ?
+                ORDER BY attempt_number
+                """,
+                (operation_id,),
+            ).fetchall()
+        finally:
+            connection.close()
+        return tuple(_row_to_attempt(row) for row in rows)
+
+
+def _row_to_attempt(row: sqlite3.Row) -> EffectDispatchAttempt:
+    return EffectDispatchAttempt(
+        attempt_id=UUID(str(row["attempt_id"])),
+        operation_id=str(row["operation_id"]),
+        attempt_number=int(row["attempt_number"]),
+        stream_id=str(row["stream_id"]),
+        request_event_type=str(row["request_event_type"]),
+        request_global_position=int(row["request_global_position"]),
+        subscription_name=str(row["subscription_name"]),
+        started_at=datetime.fromisoformat(str(row["started_at"])),
     )
 
 

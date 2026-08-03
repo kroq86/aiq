@@ -456,3 +456,60 @@ proposing `delete_records`; it demonstrates only that the guard rejects that
 tool name while `trusted_evidence` is `False`. These are representative
 application-level scenarios, not a generic provenance guarantee or universal
 prompt-injection protection.
+
+## 0.4.3 release verification
+
+Verified from the working tree that closes the `Unreleased` section covering
+`formal/run_abstained/` and the opt-in effect-dispatch attempt ledger
+(`src/agentlog/attempts.py`, `SQLiteEffectAttemptStore`, `RunReport`
+integration), using Python 3.14.6, pytest 9.1.1, and Ruff 0.15.12 in a venv
+with the full optional dependency set (`test`, `test-fastapi`, `ollama`,
+`mcp`, `lint`) installed.
+
+```bash
+PYTHONPATH=src:. pytest -q -rs
+# -> 325 passed, 2 skipped, 109 subtests passed
+```
+
+The two skips are the bounded formal tests that require the external `setdb`
+binary, unrelated to this release's Python surface.
+
+```bash
+ruff check .
+# -> All checks passed! (repository-wide, not scoped to changed files)
+
+git diff --check
+# -> clean
+```
+
+### Release artifacts
+
+Built with `uv build` using the declared Hatchling backend. Two independent
+builds from a clean cache produced byte-identical wheel and sdist:
+
+```text
+c71f2c8a2b6b642af4ca55c51e50818a97d733a7f4e3ebd48c0b6d64b424e196  agentlog-0.4.3-py3-none-any.whl
+aba5a473424ea3b6bf77f4934b99444c5765adb8c6dda3802fe2858295b25319  agentlog-0.4.3.tar.gz
+```
+
+`uv build`'s dependency resolution was independently checked with a fully
+cold `UV_CACHE_DIR` and verbose logging: every request went to
+`https://pypi.org/simple/...` (hatchling, packaging, pathspec, pluggy,
+trove-classifiers); no other index was contacted.
+
+Clean-wheel smoke in a fresh venv (no source tree on `sys.path`): the built
+wheel imports without the `mcp` extra, `ModelRequest` round-trips through
+`to_data`/`from_data`, `InMemoryEffectAttemptStore`/`SQLiteEffectAttemptStore`
+are present and constructible from the installed package, and accessing
+`agentlog.MCPTool` without the `mcp` extra raises the actionable
+`"agentlog[mcp]"` error rather than a bare `ModuleNotFoundError`.
+
+### Release boundaries
+
+This release adds `RunAbstained` bounded-model evidence and opt-in
+dispatch-attempt telemetry; it does not add multi-worker ownership,
+lease/fencing, transactional outbox delivery, exact downstream physical-call
+counts, provider-side deduplication, universal runtime refinement, or
+composition of local models. The supported deployment contract is explicitly
+one active effect worker per canonical subscription (`docs/effects.md`,
+`docs/positioning.md`). Package metadata for this release is `0.4.3`.

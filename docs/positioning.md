@@ -334,6 +334,11 @@ bidirectional domain-event/runtime-call IDs
 → causal event view correlated with actual Python runtime call subtree
 ```
 
+Опциональный durable `EffectDispatchAttempt` ledger теперь даёт
+`operation_id`-correlated operational facts и является входом для этого
+будущего bridge. Он не закрывает slice сам по себе: attempt record не содержит
+runtime span/call ID, Python subtree или подтверждение downstream I/O.
+
 Agentlog остаётся source of truth, Flow Xray — inspection/debugging UI. Отдельный
 trace viewer внутри Agentlog не планируется. Граница текущего contract и
 future runtime-call correlation описаны в `docs/flow-xray.md`.

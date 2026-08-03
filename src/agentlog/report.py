@@ -29,19 +29,25 @@ model-loop-specific field is zero/`None`/empty rather than raising. Check
 `report.event_type_counts` if you need to confirm the trace actually came
 from a `DurableModelLoop` agent.
 
-This report also does not observe physical-retry/crash-window activity
-(`docs/model-loop.md`'s crash window): a provider call retried after a
-crash but before its result was committed leaves no separate trace event,
-so `model_step_count`/`tool_call_count` reflect committed outcomes only, not
-physical invocation counts.
+The trace alone does not observe physical-retry/crash-window activity. Callers
+may explicitly supply durable `EffectDispatchAttempt` records, in which case
+the report includes dispatcher-attempt aggregates. Those records are separate
+operational facts: they do not prove downstream I/O began or completed.
+`model_step_count`/`tool_call_count` always remain committed domain counts.
 """
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from .attempts import (
+    EffectAttemptMetrics,
+    EffectDispatchAttempt,
+    build_effect_attempt_metrics,
+)
 from .model_loop import ModelLoopEvents
 from .trace import CausalTrace, TraceEvent
 
@@ -130,6 +136,7 @@ class RunReport:
     abstained: bool
     model_latency_seconds: tuple[float, ...]
     tool_call_latency_seconds: tuple[float, ...]
+    effect_attempt_metrics: EffectAttemptMetrics | None
 
 
 def _parse(created_at: str) -> datetime:
@@ -190,8 +197,43 @@ def _event_names(
     return _ModelLoopEventNames.from_loop_events(loop_events)
 
 
+def _validated_attempt_metrics(
+    trace: CausalTrace,
+    attempts: Sequence[EffectDispatchAttempt] | None,
+) -> EffectAttemptMetrics | None:
+    if attempts is None:
+        return None
+
+    requests_by_operation = {
+        event.operation_id: event
+        for event in trace.events
+        if event.operation_id is not None
+        and event.event_id == event.operation_id
+    }
+    for attempt in attempts:
+        request = requests_by_operation.get(attempt.operation_id)
+        if request is None:
+            raise ValueError(
+                "effect attempt operation_id does not identify a request "
+                f"in this trace: {attempt.operation_id!r}"
+            )
+        if (
+            attempt.stream_id != request.stream_id
+            or attempt.request_event_type != request.event_type
+            or attempt.request_global_position != request.global_position
+        ):
+            raise ValueError(
+                "effect attempt request identity does not match trace for "
+                f"operation {attempt.operation_id!r}"
+            )
+    return build_effect_attempt_metrics(attempts)
+
+
 def build_run_report(
-    trace: CausalTrace, *, loop_events: ModelLoopEvents | None = None
+    trace: CausalTrace,
+    *,
+    loop_events: ModelLoopEvents | None = None,
+    effect_attempts: Sequence[EffectDispatchAttempt] | None = None,
 ) -> RunReport:
     """Pure, computed-fresh report over an already-loaded `CausalTrace`.
 
@@ -252,6 +294,9 @@ def build_run_report(
                 names.tool_validation_failed,
             },
         ),
+        effect_attempt_metrics=_validated_attempt_metrics(
+            trace, effect_attempts
+        ),
     )
 
 
@@ -260,6 +305,7 @@ def run_report_to_json(report: RunReport) -> dict[str, Any]:
     an external observability sink. Additive: new keys may be appended in
     future minor versions, existing keys are not renamed or removed without
     a schema_version bump (mirrors `trace_to_json`'s contract)."""
+    metrics = report.effect_attempt_metrics
     return {
         "schema_version": 1,
         "report_kind": "agentlog-run-report",
@@ -292,4 +338,21 @@ def run_report_to_json(report: RunReport) -> dict[str, Any]:
             "model": list(report.model_latency_seconds),
             "tool_call": list(report.tool_call_latency_seconds),
         },
+        "idempotency": (
+            None
+            if metrics is None
+            else {
+                "observation_kind": metrics.observation_kind,
+                "dispatch_attempt_count": metrics.attempt_count,
+                "operation_count": metrics.operation_count,
+                "retried_operation_count": metrics.retried_operation_count,
+                "retry_attempt_count": metrics.retry_attempt_count,
+                "max_attempts_per_operation": (
+                    metrics.max_attempts_per_operation
+                ),
+                "dispatch_attempt_count_by_event_type": (
+                    metrics.attempt_count_by_event_type
+                ),
+            }
+        ),
     }

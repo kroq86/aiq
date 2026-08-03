@@ -16,6 +16,7 @@ from agentlog import (
     InMemoryEventStore,
     ModelMessage,
     ModelResponse,
+    SQLiteEffectAttemptStore,
     ToolRegistry,
     run_stream_id,
 )
@@ -120,7 +121,7 @@ def count_class(value: int) -> int:
     return COUNT_MANY
 
 
-def abstract_runtime(history, ledger: InvocationLedger, operational: int) -> str:
+def abstract_runtime(history, attempts, operational: int) -> str:
     request = next(
         (item.event for item in history if item.event.event_type == "ModelCallRequested"),
         None,
@@ -151,7 +152,9 @@ def abstract_runtime(history, ledger: InvocationLedger, operational: int) -> str
             raise AssertionError("runtime request does not carry its event_id as operation_id")
         operation_class = (
             OID_ORIGINAL
-            if all(operation_id == original for operation_id in ledger.operation_ids)
+            if all(
+                attempt.operation_id == original for attempt in attempts
+            )
             else OID_OTHER
         )
         committed_for_operation = sum(
@@ -162,7 +165,7 @@ def abstract_runtime(history, ledger: InvocationLedger, operational: int) -> str
         durable,
         operational,
         operation_class,
-        count_class(len(ledger.operation_ids)),
+        count_class(len(attempts)),
         count_class(committed_for_operation),
     )
 
@@ -192,8 +195,10 @@ async def verify_runtime_trace(
     states: set[str],
     invariant: set[str],
     transitions: set[tuple[str, str]],
+    attempt_path: Path,
 ) -> tuple[int, int]:
     store = InMemoryEventStore()
+    attempt_store = await SQLiteEffectAttemptStore.open(attempt_path)
     stream_id = run_stream_id("assistant", "crash-window-refinement")
     tools = ToolRegistry.from_functions(get_weather)
     first_ledger = InvocationLedger([], asyncio.Event(), asyncio.Event())
@@ -216,13 +221,26 @@ async def verify_runtime_trace(
         effects=first_runtime.effects,
         context=first_runtime.context,
         subscription_name="assistant:1:effects",
+        attempt_store=attempt_store,
     )
     await advance_effect_to_request(first_effects)
 
-    snapshots = [abstract_runtime(await store.load(stream_id), first_ledger, OP_IDLE)]
+    snapshots = [
+        abstract_runtime(
+            await store.load(stream_id),
+            await attempt_store.load_for_stream(stream_id),
+            OP_IDLE,
+        )
+    ]
     pending = asyncio.create_task(first_effects.run_once())
     await asyncio.wait_for(first_ledger.entered.wait(), timeout=5)
-    snapshots.append(abstract_runtime(await store.load(stream_id), first_ledger, OP_INVOKED))
+    snapshots.append(
+        abstract_runtime(
+            await store.load(stream_id),
+            await attempt_store.load_for_stream(stream_id),
+            OP_INVOKED,
+        )
+    )
 
     # Cancellation represents abrupt process loss after provider invocation and
     # before the handler returns an observation to the dispatcher.
@@ -231,7 +249,13 @@ async def verify_runtime_trace(
         await pending
     except asyncio.CancelledError:
         pass
-    snapshots.append(abstract_runtime(await store.load(stream_id), first_ledger, OP_IDLE))
+    snapshots.append(
+        abstract_runtime(
+            await store.load(stream_id),
+            await attempt_store.load_for_stream(stream_id),
+            OP_IDLE,
+        )
+    )
 
     second_ledger = InvocationLedger(
         first_ledger.operation_ids,
@@ -243,24 +267,39 @@ async def verify_runtime_trace(
     fresh_runtime = fresh_agent.build_runtime(
         context={"model": ObservedProvider(second_ledger), "tools": fresh_tools}
     )
+    fresh_attempt_store = await SQLiteEffectAttemptStore.open(attempt_path)
     fresh_effects = DurableEffectDispatcher(
         agent=fresh_runtime.agent,
         store=store,
         effects=fresh_runtime.effects,
         context=fresh_runtime.context,
         subscription_name="assistant:1:effects",
+        attempt_store=fresh_attempt_store,
     )
     retry = asyncio.create_task(fresh_effects.run_once())
     await asyncio.wait_for(second_ledger.entered.wait(), timeout=5)
-    snapshots.append(abstract_runtime(await store.load(stream_id), second_ledger, OP_INVOKED))
+    snapshots.append(
+        abstract_runtime(
+            await store.load(stream_id),
+            await fresh_attempt_store.load_for_stream(stream_id),
+            OP_INVOKED,
+        )
+    )
     second_ledger.release.set()
     await retry
-    snapshots.append(abstract_runtime(await store.load(stream_id), second_ledger, OP_IDLE))
+    attempts = await fresh_attempt_store.load_for_stream(stream_id)
+    snapshots.append(
+        abstract_runtime(await store.load(stream_id), attempts, OP_IDLE)
+    )
 
     if len(second_ledger.operation_ids) != 2:
         raise AssertionError("crash/retry did not produce exactly two physical invocations")
     if len(set(second_ledger.operation_ids)) != 1:
         raise AssertionError("retry changed the durable operation_id")
+    if [attempt.operation_id for attempt in attempts] != second_ledger.operation_ids:
+        raise AssertionError(
+            "durable dispatch attempts do not match observed provider entries"
+        )
 
     for snapshot in snapshots:
         if snapshot not in states or snapshot not in invariant:
@@ -268,14 +307,19 @@ async def verify_runtime_trace(
     for parent, child in zip(snapshots, snapshots[1:]):
         if (parent, child) not in transitions:
             raise AssertionError(f"runtime boundary has no formal transition: {parent} -> {child}")
-    return len(snapshots), len(second_ledger.operation_ids)
+    return len(snapshots), len(attempts)
 
 
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="agentlog-crash-refinement-") as directory:
         states, invariant, transitions = build_graph(Path(directory))
         snapshots, invocations = asyncio.run(
-            verify_runtime_trace(states, invariant, transitions)
+            verify_runtime_trace(
+                states,
+                invariant,
+                transitions,
+                Path(directory) / "attempts.db",
+            )
         )
     print(
         "CRASH_RUNTIME_REFINEMENT_PASS "

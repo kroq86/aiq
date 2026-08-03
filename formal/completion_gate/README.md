@@ -70,8 +70,11 @@ goal-event assertions remain vacuous. It also does not establish:
   boolean classes;
 - correctness of an application's invariant or goal predicate;
 - persistence, concurrency, liveness, or scheduler fairness;
-- `RunAbstained`, cycle detection, tool execution, or provider behavior;
-- composition with the base lifecycle or cycle-guard model.
+- cycle detection, abstention routing, tool execution, or provider behavior;
+- composition with the base lifecycle, cycle-guard, or RunAbstained model.
+
+`RunAbstained` routing is covered separately by
+`formal/run_abstained/`; it is not part of this checker.
 
 This is bounded-exhaustive local evidence, not a proof of the implementation
 or of business-goal truth.

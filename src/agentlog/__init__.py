@@ -21,7 +21,18 @@ from .artifacts import (
     SQLiteArtifactStore,
     artifact_digest,
 )
-from .sqlite import SQLiteEventStore, SQLiteSubscriptionCheckpoints
+from .attempts import (
+    EffectAttemptMetrics,
+    EffectAttemptStore,
+    EffectDispatchAttempt,
+    InMemoryEffectAttemptStore,
+    build_effect_attempt_metrics,
+)
+from .sqlite import (
+    SQLiteEffectAttemptStore,
+    SQLiteEventStore,
+    SQLiteSubscriptionCheckpoints,
+)
 from .runtime import (
     AgentDefinition,
     DefinitionMismatchError,
@@ -134,6 +145,9 @@ __all__ = [
     "DurableEffectDispatcher",
     "DurableModelLoop",
     "EffectContext",
+    "EffectAttemptMetrics",
+    "EffectAttemptStore",
+    "EffectDispatchAttempt",
     "EffectFailed",
     "EffectMetadataError",
     "EffectRegistry",
@@ -142,6 +156,7 @@ __all__ = [
     "EventEnvelope",
     "EventStore",
     "InMemoryEventStore",
+    "InMemoryEffectAttemptStore",
     "InMemoryArtifactStore",
     "InMemorySubscriptionCheckpoints",
     "InstructionResolutionError",
@@ -165,6 +180,7 @@ __all__ = [
     "RunReport",
     "ResolvedInstruction",
     "SQLiteEventStore",
+    "SQLiteEffectAttemptStore",
     "SQLiteArtifactStore",
     "SQLiteSubscriptionCheckpoints",
     "SequenceChild",
@@ -195,6 +211,7 @@ __all__ = [
     "TraceService",
     "VersionConflictError",
     "build_causal_trace",
+    "build_effect_attempt_metrics",
     "build_run_report",
     "run_report_to_json",
     "effect_request",
