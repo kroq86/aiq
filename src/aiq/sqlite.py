@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import queue
 import sqlite3
-from collections.abc import Mapping, Sequence
+import threading
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Self
@@ -293,11 +295,48 @@ def _encode(value: Mapping[str, JsonValue]) -> str:
     )
 
 
+class _SQLiteConnectionPool:
+    """Bounded pool of already-open connections for one SQLite file.
+
+    Each store method used to open()/close() a fresh sqlite3.Connection
+    per call; under load that connect/close pair dominated per-call
+    latency (measured ~4-5ms p50 vs ~0.03ms for the equivalent in-memory
+    path). Connections are borrowed for the duration of one operation and
+    returned afterwards instead of being closed, so repeated operations
+    reuse already-open connections. Every borrower already rolls back on
+    exception before releasing (see the BEGIN IMMEDIATE / except
+    BaseException pairs below), so a released connection is always free
+    of an open transaction.
+    """
+
+    def __init__(self, factory: Callable[[], sqlite3.Connection], size: int = 5) -> None:
+        self._factory = factory
+        self._size = size
+        self._idle: queue.SimpleQueue[sqlite3.Connection] = queue.SimpleQueue()
+        self._created = 0
+        self._creation_lock = threading.Lock()
+
+    def acquire(self) -> sqlite3.Connection:
+        try:
+            return self._idle.get_nowait()
+        except queue.Empty:
+            pass
+        with self._creation_lock:
+            if self._created < self._size:
+                self._created += 1
+                return self._factory()
+        return self._idle.get()
+
+    def release(self, connection: sqlite3.Connection) -> None:
+        self._idle.put(connection)
+
+
 class SQLiteEventStore:
     """Durable, append-only event store backed by one SQLite file."""
 
     def __init__(self, path: Path) -> None:
         self._path = path
+        self._pool = _SQLiteConnectionPool(self._open_connection)
 
     @classmethod
     async def open(cls, path: str | Path) -> Self:
@@ -308,39 +347,45 @@ class SQLiteEventStore:
         await asyncio.to_thread(store._initialize)
         return store
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self._path, timeout=5.0)
+    def _open_connection(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self._path, timeout=5.0, check_same_thread=False)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout = 5000")
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
 
+    def _connect(self) -> sqlite3.Connection:
+        return self._pool.acquire()
+
+    def _release(self, connection: sqlite3.Connection) -> None:
+        self._pool.release(connection)
+
     def _initialize(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        connection = self._connect()
+        init_connection = self._open_connection()
         try:
-            connection.execute("PRAGMA journal_mode = WAL")
-            connection.execute("PRAGMA synchronous = FULL")
-            connection.executescript(_SCHEMA)
-            connection.executescript(_ATTEMPT_SCHEMA)
+            init_connection.execute("PRAGMA journal_mode = WAL")
+            init_connection.execute("PRAGMA synchronous = FULL")
+            init_connection.executescript(_SCHEMA)
+            init_connection.executescript(_ATTEMPT_SCHEMA)
             lease_columns = {
                 str(row["name"])
-                for row in connection.execute(
+                for row in init_connection.execute(
                     "PRAGMA table_info(effect_leases)"
                 ).fetchall()
             }
             if lease_columns and "lease_id" not in lease_columns:
-                connection.execute(
+                init_connection.execute(
                     "ALTER TABLE effect_leases ADD COLUMN lease_id TEXT"
                 )
-                rows = connection.execute(
+                rows = init_connection.execute(
                     """
                     SELECT subscription_name, request_global_position
                     FROM effect_leases WHERE lease_id IS NULL
                     """
                 ).fetchall()
                 for row in rows:
-                    connection.execute(
+                    init_connection.execute(
                         """
                         UPDATE effect_leases SET lease_id = ?
                         WHERE subscription_name = ?
@@ -352,11 +397,11 @@ class SQLiteEventStore:
                             int(row["request_global_position"]),
                         ),
                     )
-            connection.executescript(_LEASE_SCHEMA)
-            connection.executescript(_LEASE_OBSERVATION_SCHEMA)
-            connection.commit()
+            init_connection.executescript(_LEASE_SCHEMA)
+            init_connection.executescript(_LEASE_OBSERVATION_SCHEMA)
+            init_connection.commit()
         finally:
-            connection.close()
+            init_connection.close()
 
     async def append(
         self,
@@ -473,7 +518,7 @@ class SQLiteEventStore:
             connection.rollback()
             raise
         finally:
-            connection.close()
+            self._release(connection)
 
     async def load(
         self,
@@ -508,7 +553,7 @@ class SQLiteEventStore:
                 (stream_id, after_version),
             ).fetchall()
         finally:
-            connection.close()
+            self._release(connection)
 
         return tuple(
             _row_to_envelope(row)
@@ -533,7 +578,7 @@ class SQLiteEventStore:
             ).fetchone()
             return int(row["current_version"])
         finally:
-            connection.close()
+            self._release(connection)
 
     async def load_stream_after_position(
         self,
@@ -582,7 +627,7 @@ class SQLiteEventStore:
                 (stream_id, after_position, limit),
             ).fetchall()
         finally:
-            connection.close()
+            self._release(connection)
         return tuple(_row_to_envelope(row) for row in rows)
 
     async def load_global(
@@ -627,7 +672,7 @@ class SQLiteEventStore:
                 (after_position, limit),
             ).fetchall()
         finally:
-            connection.close()
+            self._release(connection)
         return tuple(_row_to_envelope(row) for row in rows)
 
     async def load_checkpoint(self, subscription_name: str) -> int:
@@ -647,7 +692,7 @@ class SQLiteEventStore:
                 (subscription_name,),
             ).fetchone()
         finally:
-            connection.close()
+            self._release(connection)
         return 0 if row is None else int(row["global_position"])
 
     async def commit_subscription_batch(
@@ -813,7 +858,7 @@ class SQLiteEventStore:
             connection.rollback()
             raise
         finally:
-            connection.close()
+            self._release(connection)
 
     async def try_claim_effect(
         self,
@@ -1100,7 +1145,7 @@ class SQLiteEventStore:
             connection.rollback()
             raise
         finally:
-            connection.close()
+            self._release(connection)
 
     async def confirm_effect_claim(
         self,
@@ -1179,7 +1224,7 @@ class SQLiteEventStore:
             connection.rollback()
             raise
         finally:
-            connection.close()
+            self._release(connection)
 
     async def renew_effect_claim(
         self,
@@ -1274,7 +1319,7 @@ class SQLiteEventStore:
             connection.rollback()
             raise
         finally:
-            connection.close()
+            self._release(connection)
 
     async def release_effect_claim(self, lease: EffectLease) -> bool:
         return await asyncio.to_thread(self._release_effect_claim_sync, lease)
@@ -1315,7 +1360,7 @@ class SQLiteEventStore:
             connection.rollback()
             raise
         finally:
-            connection.close()
+            self._release(connection)
 
     async def commit_fenced_subscription_batch(
         self,
@@ -1534,7 +1579,7 @@ class SQLiteEventStore:
             connection.rollback()
             raise
         finally:
-            connection.close()
+            self._release(connection)
 
     async def _load_lease_observations_for_operation(
         self, operation_id: str
@@ -1581,7 +1626,7 @@ class SQLiteEventStore:
                 parameters,
             ).fetchall()
         finally:
-            connection.close()
+            self._release(connection)
         return tuple(_row_to_lease_observation(row) for row in rows)
 
 
@@ -1639,6 +1684,7 @@ class SQLiteEffectAttemptStore:
 
     def __init__(self, path: Path) -> None:
         self._path = path
+        self._pool = _SQLiteConnectionPool(self._open_connection)
 
     @classmethod
     async def open(cls, path: str | Path) -> Self:
@@ -1651,22 +1697,28 @@ class SQLiteEffectAttemptStore:
         await asyncio.to_thread(store._initialize)
         return store
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self._path, timeout=5.0)
+    def _open_connection(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self._path, timeout=5.0, check_same_thread=False)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout = 5000")
         return connection
 
+    def _connect(self) -> sqlite3.Connection:
+        return self._pool.acquire()
+
+    def _release(self, connection: sqlite3.Connection) -> None:
+        self._pool.release(connection)
+
     def _initialize(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        connection = self._connect()
+        init_connection = self._open_connection()
         try:
-            connection.execute("PRAGMA journal_mode = WAL")
-            connection.execute("PRAGMA synchronous = FULL")
-            connection.executescript(_ATTEMPT_SCHEMA)
-            connection.commit()
+            init_connection.execute("PRAGMA journal_mode = WAL")
+            init_connection.execute("PRAGMA synchronous = FULL")
+            init_connection.executescript(_ATTEMPT_SCHEMA)
+            init_connection.commit()
         finally:
-            connection.close()
+            init_connection.close()
 
     async def record_start(
         self,
@@ -1762,7 +1814,7 @@ class SQLiteEffectAttemptStore:
             connection.rollback()
             raise
         finally:
-            connection.close()
+            self._release(connection)
 
     async def load_for_stream(
         self, stream_id: str
@@ -1794,7 +1846,7 @@ class SQLiteEffectAttemptStore:
                 (stream_id,),
             ).fetchall()
         finally:
-            connection.close()
+            self._release(connection)
         return tuple(_row_to_attempt(row) for row in rows)
 
     async def load_for_operation(
@@ -1829,7 +1881,7 @@ class SQLiteEffectAttemptStore:
                 (operation_id,),
             ).fetchall()
         finally:
-            connection.close()
+            self._release(connection)
         return tuple(_row_to_attempt(row) for row in rows)
 
 
@@ -1851,17 +1903,24 @@ class SQLiteSubscriptionCheckpoints:
 
     def __init__(self, path: Path) -> None:
         self._path = path
+        self._pool = _SQLiteConnectionPool(self._open_connection)
 
     @classmethod
     async def open(cls, path: str | Path) -> Self:
         event_store = await SQLiteEventStore.open(path)
         return cls(event_store._path)
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self._path, timeout=5.0)
+    def _open_connection(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self._path, timeout=5.0, check_same_thread=False)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout = 5000")
         return connection
+
+    def _connect(self) -> sqlite3.Connection:
+        return self._pool.acquire()
+
+    def _release(self, connection: sqlite3.Connection) -> None:
+        self._pool.release(connection)
 
     async def load(self, subscription_name: str) -> int:
         if not subscription_name:
@@ -1880,7 +1939,7 @@ class SQLiteSubscriptionCheckpoints:
                 (subscription_name,),
             ).fetchone()
         finally:
-            connection.close()
+            self._release(connection)
         return 0 if row is None else int(row["global_position"])
 
     async def save(
@@ -1951,4 +2010,4 @@ class SQLiteSubscriptionCheckpoints:
             connection.rollback()
             raise
         finally:
-            connection.close()
+            self._release(connection)
