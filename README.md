@@ -1,59 +1,70 @@
-# Как я проверял идеи советской кибернетики на языковых моделях, MCP и БД
+# AIQ — Durable AI Agent Runtime for Python
 
-Одними из самых полезных материалов по современным ИИ-агентам
-для меня оказались книги по кибернетике времён СССР.
+[![PyPI](https://img.shields.io/pypi/v/aiq)](https://pypi.org/project/aiq/)
+[![Python](https://img.shields.io/pypi/pyversions/aiq)](https://pypi.org/project/aiq/)
+[![PyPI publish](https://github.com/kroq86/aiq/actions/workflows/publish-pypi.yml/badge.svg)](https://github.com/kroq86/aiq/actions)
+[![License](https://img.shields.io/github/license/kroq86/aiq)](LICENSE)
 
-Инженеры того времени систематически работали с классом задач,
-который сегодня снова возник вокруг агентных систем:
+AIQ is an event-sourced Python runtime for durable AI agents and bounded LLM
+workflows. It records model decisions, guarded tool calls, validation results,
+checkpoints, retries, and terminal outcomes as explicit replayable facts.
 
-Технологии новые, а неопределённость прежняя: действие уже могло произойти, процесс мог умереть, наблюдение могло не сохраниться, но системе всё равно нужно определить, что считать фактом и что допустимо дальше.
-Ненадёжный компонент — это большая языковая модель. Среда — программные интерфейсы, MCP-серверы, базы данных и объектные хранилища.
-
-Я решил не ограничиваться исторической аналогией и собрал работающий эксперимент. Так появился [AIQ](https://github.com/kroq86/aiq) — основанная на событиях среда исполнения для durable-агентов на Python.
-
-> AIQ — durable runtime для bounded AI workflows, а не RAG- или MCP-платформа.
-
-Один пример границы, которую он реально проверяет (`examples/bounded_corporate_agent/`, `docs/model-loop.md`):
-
-```text
-bounded model/provider
-→ validated tool proposal
-→ guarded transition
-→ durable execution
-→ goal-gated completion
+```bash
+pip install aiq
 ```
 
-Модель или детерминированный provider предлагает один вызов инструмента; всё, что происходит дальше — валидация, guard перехода, само исполнение, нормализация результата и допуск до завершения — управляется явным, детерминированным, durable-кодом. Reference example по умолчанию использует воспроизводимую заглушку, а флаг `--ollama` подключает реальную локальную модель через `OllamaProvider`.
+```python
+from aiq import Event, InMemoryEventStore
+```
 
-### Текущая метка
+## Why AIQ
 
-> **Durable guarded execution framework candidate with opt-in SQLite
-> lease/fencing.**
+- Durable event log, replay, restart, checkpoints, and causal traces.
+- Guarded model/tool execution with schema, policy, invariant, and goal gates.
+- Explicit retry, replan, abstain, cycle detection, and terminal absorption.
+- FastAPI, Server-Sent Events, Ollama, and MCP integration adapters.
+- Stable operation IDs and append-only physical attempt telemetry.
+- Coordinated multi-worker effects over one shared SQLite database.
+- Atomic lease claims, DB-time expiry, heartbeat renewal, fencing tokens, and
+  stale-worker rejection.
+- Executable bounded models, targeted mutants, crash scenarios, and runtime
+  refinement evidence.
 
-- Подходит для controlled single-worker pilot — один effect-воркер на run,
-  без координации между несколькими воркерами.
-- Внешние side effects по-прежнему требуют downstream idempotency на стороне
-  самого tool/интеграции. Внутри одного воркера at-most-one-committed-result —
-  bounded/scenario-проверенное свойство (crash-window модель плюс отдельные
-  восстановленные сценарии против реальных Ollama/MCP-крашей), а не
-  exactly-once физическое исполнение.
-- Multi-worker effect ownership доступен только как opt-in режим для workers,
-  использующих один SQLite-файл и один canonical subscription. Atomic claim
-  создаёт отдельный lease ID, записывает attempt, heartbeat продлевает DB-time
-  lease без смены token, pre-handler confirmation повторно проверяет ownership,
-  а fenced commit запрещает stale worker записать output или checkpoint.
-- Append-only lease-observation ledger сохраняет acquired/busy/expiry/renewal/
-  takeover/stale facts. Из lease API top-level публичен только
-  `EffectLeaseOptions`; handles, protocols и observation records internal.
-- Lease не обеспечивает exactly-once physical execution: после expiry старый
-  handler может ещё выполнять внешний I/O, поэтому `operation_id` и downstream
-  idempotency остаются обязательными.
-- Пять control event types (`GoalSatisfied`/`GoalNotSatisfied`/
-  `WorkflowInvariantViolated`/`WorkflowCycleDetected`/`RunAbstained`) покрыты
-  отдельными bounded-моделями с невакуозными witness'ами и targeted mutants;
-  base trace/bisimulation reference-модель (`formal/model/spec.py`) для этих
-  событий остаётся вакуозной, и composition между локальными моделями не
-  установлена.
+```text
+model or provider proposal
+→ validated tool proposal
+→ guarded durable transition
+→ effect execution
+→ invariant and goal checks
+→ committed terminal outcome
+```
+
+## Guarantee boundary
+
+AIQ protects durable ownership and preserves at most one committed result for
+the covered SQLite protocol. It does **not** guarantee exactly-once physical
+external I/O. External effects remain at-least-once and require downstream
+idempotency using the stable `operation_id` or equivalent deduplication.
+
+Current multi-worker coordination is SQLite-only: all workers must share one
+database file with reliable locking and one canonical effect subscription.
+PostgreSQL claims, transactional outbox delivery, universal composition proofs,
+and production-scale capacity guarantees remain outside the current release.
+
+## Start here
+
+- [PyPI package overview](PYPI.md)
+- [Effect execution and idempotency](docs/effects.md)
+- [Durable model loop](docs/model-loop.md)
+- [FastAPI embedding](docs/fastapi.md)
+- [MCP tool adapter](docs/mcp.md)
+- [Formal verification boundaries](formal/FORMAL_MODEL.md)
+- [Runnable examples](examples/)
+
+## Design background and engineering notes
+
+The remainder of this document preserves the original Russian-language design
+essay and detailed implementation walkthrough.
 
 ## Исторические координаты
 

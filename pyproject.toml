@@ -4,24 +4,45 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aiq"
-version = "0.5.0"
-description = "Database-agnostic event log core for durable agents"
-readme = "README.md"
+version = "0.5.1"
+description = "Durable Python runtime for AI agents with event sourcing, guarded tools, replay, and SQLite lease fencing"
+readme = "PYPI.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
+keywords = [
+    "ai-agents",
+    "agent-runtime",
+    "durable-execution",
+    "event-sourcing",
+    "llm",
+    "mcp",
+    "workflow",
+    "sqlite",
+    "fastapi",
+]
 authors = [
     { name = "Kirill Ostapenko", email = "djkroq@gmail.com" },
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kroq86/aiq"
+Repository = "https://github.com/kroq86/aiq"
+Documentation = "https://github.com/kroq86/aiq/tree/main/docs"
+Issues = "https://github.com/kroq86/aiq/issues"
+Changelog = "https://github.com/kroq86/aiq/blob/main/CHANGELOG.md"
 
 [project.scripts]
 aiq = "aiq.evals.cli:main"

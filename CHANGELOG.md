@@ -6,6 +6,21 @@ correctness claims.
 
 ## Unreleased
 
+## 0.5.1 - 2026-08-03
+
+### Added
+
+- GitHub Actions build, metadata validation, and token-authenticated PyPI
+  publishing for version tags and explicit manual dispatches.
+- English PyPI project page with searchable package metadata, project URLs,
+  installation guidance, capability boundaries, and verification links.
+
+### Changed
+
+- Reworked the GitHub landing section and repository metadata around AIQ's
+  durable agent runtime, event sourcing, guarded tools, replay, MCP/FastAPI
+  adapters, and SQLite lease/fencing capabilities.
+
 ## 0.5.0 - 2026-08-03
 
 ### Added
