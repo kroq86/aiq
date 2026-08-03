@@ -34,12 +34,6 @@ import unittest
 from dataclasses import dataclass, replace
 from functools import partial
 
-# Expected, informational noise from the definition-mismatch skip path
-# (see runtime.py's DurableDispatcher/DurableEffectDispatcher.run_once) --
-# this state machine deliberately triggers it constantly by interleaving
-# two versions, so it would otherwise drown out real test output.
-logging.getLogger("agentlog.runtime").setLevel(logging.ERROR)
-
 from hypothesis import HealthCheck, settings
 from hypothesis import strategies as st
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, invariant, rule
@@ -58,6 +52,12 @@ from agentlog import (
     effect_request,
 )
 from agentlog.runtime import _commit_outputs_with_retry, _normalize_effect_outputs
+
+# Expected, informational noise from the definition-mismatch skip path
+# (see runtime.py's DurableDispatcher/DurableEffectDispatcher.run_once) --
+# this state machine deliberately triggers it constantly by interleaving
+# two versions, so it would otherwise drown out real test output.
+logging.getLogger("agentlog.runtime").setLevel(logging.ERROR)
 
 
 def run(coro):

@@ -10,7 +10,7 @@ itself is 100% real, nothing about the LLM interaction is faked.
 
 Run:
 
-    PYTHONPATH=src python examples/ollama_chat_agent/verify_crash_before_commit.py
+    PYTHONPATH=src:. python examples/ollama_chat_agent/verify_crash_before_commit.py
 """
 
 from __future__ import annotations

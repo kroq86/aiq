@@ -60,6 +60,7 @@ def define(
     workflow_invariant=None,
     goal_satisfied=None,
     limits=None,
+    namespace="model",
 ):
     agent = Agent(name="assistant", version="1", initial_state=State)
 
@@ -81,6 +82,7 @@ def define(
         workflow_invariant=workflow_invariant,
         goal_satisfied=goal_satisfied,
         limits=limits,
+        namespace=namespace,
     )
     loop.install(agent)
 

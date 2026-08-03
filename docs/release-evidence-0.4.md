@@ -155,6 +155,34 @@ release-hardening pass. Runtime-level coverage of the same properties is
 scenario-based (restart-equivalence tests above, mutation table above), not
 a reference-model proof.
 
+### Cycle-guard bounded model (partial closure)
+
+Following the feasibility spike below, the smallest slice
+(`CycleGuardModel`) was actually built as a standalone check, separate from
+`spec.py`: `formal/cycle_guard/check.py`. It does not extend or modify
+`spec.py`, and it does not establish a refinement mapping from the real
+`_fingerprint_snapshot` mechanism to its three abstract classes -- that
+mapping work remains open, same as before. What it does add:
+`WorkflowCycleDetected` is reachable (non-vacuous) in a checked
+bounded-exhaustive exploration, with two killed targeted mutants.
+
+```bash
+python3 formal/cycle_guard/check.py
+# -> PASS bound=10 states=30 transitions=41 cycle_detected_witnessed=True
+
+python3 formal/cycle_guard/check.py --mutant disable_cycle_guard
+# -> MUTANT_KILLED mutant=disable_cycle_guard property=AtClassNeverProceedsToToolCall ...
+
+python3 formal/cycle_guard/check.py --mutant cycle_allows_completion
+# -> MUTANT_KILLED mutant=cycle_allows_completion property=CycleDetectedNeverPrecedesRunCompleted ...
+```
+
+`GoalSatisfied`, `GoalNotSatisfied`, `WorkflowInvariantViolated`, and
+`RunAbstained` are unaffected by this and remain exactly as described above:
+vacuous in `spec.py`, covered only by runtime scenario/restart/mutation
+evidence, no bounded model. See `formal/cycle_guard/README.md` for the exact
+scope boundary.
+
 ### Feasibility spike (not committed, not a proof)
 
 A throwaway, out-of-repo spike estimated the state-space cost of closing this
@@ -223,6 +251,14 @@ existing, already-proven limitation extended to three new call sites.
 Each command below was run against this working tree with
 `PYTHONPATH=src:.` from the repository root, Python 3.14.6, pytest 9.0.3,
 ruff 0.15.12.
+
+```bash
+# cycle-guard bounded model (no setdb dependency)
+python3 formal/cycle_guard/check.py
+python3 formal/cycle_guard/check.py --mutant disable_cycle_guard
+python3 formal/cycle_guard/check.py --mutant cycle_allows_completion
+# -> PASS ... cycle_detected_witnessed=True; both mutants MUTANT_KILLED
+```
 
 ```bash
 # constrained v0.4 E2E

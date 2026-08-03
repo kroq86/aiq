@@ -151,11 +151,24 @@ release-hardening pass. `assert_invariants` in `spec.py` still contains two
 ordering/exclusion checks written against these event types; they are marked
 `NOTE(vacuity)` in the source because no action in that module emits these
 events and no test constructs a `ReferenceState` containing them, so those
-two checks are currently vacuous over every bounded exploration and every
-committed test. Runtime-level coverage of the same properties (not a
-reference-model proof) lives in
+two checks remain vacuous over every bounded exploration and every committed
+test of *this* trace/bisimulation reference model. Runtime-level coverage of
+the same properties (not a reference-model proof) lives in
 `tests/test_v04_constrained_execution_e2e.py::V04ControlRestartEquivalenceTests`
 and the targeted mutation table in `docs/release-evidence-0.4.md`.
+
+One narrow slice of this gap has since been closed as a *separate*, standalone
+small model rather than by extending `spec.py`: `formal/cycle_guard/` is a
+bounded-exhaustive Python check (same convention as `formal/middleware/` and
+`formal/sequence/`, no `setdb` dependency) covering only the repeated-state
+guard's own abstract safety properties, with `WorkflowCycleDetected` reachable
+(non-vacuous) and two killed targeted mutants. It does not touch
+`spec.py`, does not establish a refinement mapping from the real
+`_fingerprint_snapshot` mechanism, and does not cover
+`GoalSatisfied`/`GoalNotSatisfied`/`WorkflowInvariantViolated`/
+`RunAbstained` -- see `formal/cycle_guard/README.md` for the precise scope.
+Those four event types, and the composition question of whether local
+per-event proofs like this one combine into anything, remain fully open.
 
 ## 3. Concrete single-run integration model
 

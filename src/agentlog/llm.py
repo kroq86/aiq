@@ -13,6 +13,7 @@ from .core import Event, JsonValue
 from .models import (
     ModelCallFailedError,
     ModelCallRejectedError,
+    ModelMessage,
     ModelOutputRejectedError,
     ModelProvider,
     ModelRequest,
@@ -149,9 +150,7 @@ async def execute_tool_call(event: Event, registry: ToolRegistry) -> tuple[Event
     )
 
 
-def tool_result_message(event: Event) -> "ModelMessage":
-    from .models import ModelMessage
-
+def tool_result_message(event: Event) -> ModelMessage:
     if event.event_type != TOOL_CALL_SUCCEEDED:
         raise TypeError(f"expected {TOOL_CALL_SUCCEEDED}, got {event.event_type}")
     # ModelMessage content is text across providers.  JSON-compatible values

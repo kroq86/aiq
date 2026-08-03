@@ -19,7 +19,6 @@ from agentlog import (
     EventEnvelope,
     InMemoryEventStore,
     SQLiteEventStore,
-    TerminalEventConflictError,
     effect_request,
     run_stream_id,
 )
@@ -1346,19 +1345,19 @@ class FrameworkApiSmokeTests(unittest.TestCase):
             agent1, resource1 = build()
             runtime1 = agent1.build_runtime(context=resource1)
 
-            async def start():
+            async def start(runtime):
                 store = await SQLiteEventStore.open(path)
                 await store.append(
                     stream_id, -1, [Event("Added", {"text": "Ostap"})]
                 )
                 reactions = DurableDispatcher(
-                    agent=runtime1.agent, store=store, subscription_name="reactions"
+                    agent=runtime.agent, store=store, subscription_name="reactions"
                 )
                 for _ in range(10):
                     if not await reactions.run_once():
                         break
 
-            run(start())
+            run(start(runtime1))
             del agent1, runtime1, resource1
 
             # Generation 2: nothing above survives in memory -- a fresh

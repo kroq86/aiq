@@ -106,6 +106,7 @@ from .trace import (
     build_causal_trace,
     trace_to_json,
 )
+from .report import RunReport, build_run_report, run_report_to_json
 
 __all__ = [
     "Agent",
@@ -160,6 +161,7 @@ __all__ = [
     "MiddlewareExecutionError",
     "OllamaProvider",
     "RunNotFoundError",
+    "RunReport",
     "ResolvedInstruction",
     "SQLiteEventStore",
     "SQLiteArtifactStore",
@@ -192,6 +194,8 @@ __all__ = [
     "TraceService",
     "VersionConflictError",
     "build_causal_trace",
+    "build_run_report",
+    "run_report_to_json",
     "effect_request",
     "function_tool",
     "agent_owns_stream",

@@ -9,7 +9,6 @@ app), and double-mounting one router under two prefixes.
 
 from __future__ import annotations
 
-import asyncio
 import unittest
 import warnings
 from contextlib import asynccontextmanager

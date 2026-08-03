@@ -6,7 +6,7 @@ different path. The late-arriving real result must not be committed.
 
 Run:
 
-    PYTHONPATH=src python examples/ollama_chat_agent/verify_terminal_race.py
+    PYTHONPATH=src:. python examples/ollama_chat_agent/verify_terminal_race.py
 """
 
 from __future__ import annotations

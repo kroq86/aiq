@@ -386,14 +386,14 @@ class CrashRestartTests(unittest.TestCase):
             runtime1 = agent1.build_runtime(context=context1)
             stream_id = run_stream_id("assistant", "run-1")
 
-            async def start():
+            async def start(agent, runtime):
                 store = await SQLiteEventStore.open(path)
                 run_created = Event("RunCreated", {"agent": "assistant"})
                 await store.append(stream_id, -1, [run_created])
-                produced = agent1.handle_command("message", {"text": "hi"})
+                produced = agent.handle_command("message", {"text": "hi"})
                 await store.append(stream_id, 0, produced)
                 reactions = DurableDispatcher(
-                    agent=runtime1.agent,
+                    agent=runtime.agent,
                     store=store,
                     subscription_name="assistant:reactions",
                 )
@@ -401,7 +401,7 @@ class CrashRestartTests(unittest.TestCase):
                     if not await reactions.run_once():
                         break
 
-            run(start())
+            run(start(agent1, runtime1))
             del agent1, runtime1, context1
 
             # Generation 2: brand new Agent, brand new resource instance,
