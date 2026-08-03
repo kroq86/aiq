@@ -273,8 +273,20 @@ ToolCallRequested
 → ToolCallSucceeded | ToolCallFailed | ToolCallRejected
 ```
 
-Часть lifecycle уже доказана fake adapter tests. Настоящий MCP adapter, schema
-validation и retry classification пока отсутствуют.
+Часть lifecycle проверена fake adapter tests. Для локальных Python tools уже
+есть ограниченная structural JSON Schema validation и опциональная
+application-owned semantic policy до/после tool execution. Retryable request
+rejection возвращается модели как feedback; postcondition failure не повторяет
+внешний effect автоматически. Настоящий MCP adapter пока отсутствует.
+
+Эта policy является механизмом constrained execution, а не планировщиком:
+она проверяет один предложенный переход, но не выбирает следующий допустимый
+переход. Planning strategy остаётся контрактом конкретного приложения. v0.4
+candidate добавляет opt-in ограниченный workflow-snapshot, repeated-state
+guard и один boolean goal-предикат перед `RunCompleted` — это узкий,
+scenario-tested механизм (см. `docs/release-evidence-0.4.md`), не общий
+workflow-state model или production-grade goal verifier; ни один из них не
+формально доказан (bounded exhaustive) на момент этого документа.
 
 ### 5. Replayable projections
 

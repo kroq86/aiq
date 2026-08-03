@@ -45,4 +45,8 @@ test-fastapi = [
 ]
 test = [
     "hypothesis>=6,<7",
+    "pytest>=9,<10",
+]
+lint = [
+    "ruff==0.15.12",
 ]

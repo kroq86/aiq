@@ -1,9 +1,19 @@
 from __future__ import annotations
 
 import unittest
+import warnings
 
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from starlette.exceptions import StarletteDeprecationWarning
+
+# Scoped, not global -- see test_fastapi_embedding.py for why.
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message=r"Using `httpx` with `starlette\.testclient` is deprecated.*",
+        category=StarletteDeprecationWarning,
+    )
+    from fastapi.testclient import TestClient
 
 from agentlog import InMemoryEventStore, ToolRegistry
 from agentlog.fastapi import AgentlogApplication

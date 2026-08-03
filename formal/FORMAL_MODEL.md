@@ -68,6 +68,95 @@ cause(AnswerProduced)=cause(RunCompleted)=id(ModelSucceeded)
 
 Their order in history does not create a causal edge between them.
 
+### 2.1 Optional validation/control extension
+
+The application may provide predicates for one proposed tool transition. The
+generic runtime coordinates those predicates but does not define their domain
+meaning. The extended local lifecycle is:
+
+```text
+ToolRequested
+├── ValidationFailed(request, retryable=false) -> RunFailed
+├── ValidationFailed(request, retryable=true)  -> ModelRequested
+├── ValidationSucceeded(request)
+│   └── ValidationFailed(result)               -> RunFailed
+└── ValidationSucceeded(request)
+    └── ValidationSucceeded(result)
+        └── ToolSucceeded                      -> ModelRequested
+```
+
+`ToolValidationSucceeded` is durable evidence, not the committed outcome of
+the external request. `ToolValidationFailed` is the single committed outcome
+when the proposed transition is rejected or its postcondition is not
+confirmed. Therefore the existing at-most-one-result obligation is extended
+with `ToolValidationFailed`, but not with `ToolValidationSucceeded`.
+
+For a result-phase failure, the model checks two strengthening predicates:
+
+\[
+phase(f)=result \Rightarrow retryable(f)=false
+\]
+
+\[
+phase(f)=result \Rightarrow
+\exists a < f:\ ValidationSucceeded(a,request)\land cause(a)=cause(f)
+\]
+
+The first prevents an implicit repeat after a side effect may already have
+occurred. The second requires recorded pre-validation evidence before a
+postcondition claim. Targeted semantic mutants flip `retryable` and remove the
+pre-evidence event; the unchanged invariant oracle rejects both.
+
+This extension models orchestration only. Application predicates, candidate
+relevance, permissions, and action selection remain outside this transition
+system. In particular, locally accepted transitions do not establish a
+globally correct plan.
+
+The v0.4 candidate below adds a bounded, separately scoped layer for
+workflow-state snapshots, a repeated-state guard, and a single goal
+predicate. It does not retroactively extend the FASM proof above, and does
+not amount to a general workflow-state model, progress measure, or planner:
+
+```text
+GoalSatisfied -> [AnswerProduced, RunCompleted]
+GoalNotSatisfied -> RunFailed
+WorkflowCycleDetected -> RunFailed
+```
+
+For policy-enabled completion the target strengthening is:
+
+\[
+RunCompleted \Rightarrow GoalSatisfiedBeforeCompletion
+\]
+
+and for negative control evidence:
+
+\[
+GoalNotSatisfied \lor WorkflowCycleDetected \Rightarrow \neg RunCompleted
+\]
+
+The Python invariant oracle checks ordering and exclusion for observed
+histories. This is not yet a new bounded exhaustive FASM result: the published
+54-state abstraction and 552-state saturated concrete graph describe the
+pre-v0.4 lifecycle vocabulary and must not be cited as proof of these added
+branches.
+
+**Formal-model boundary decision (v0.4 release-hardening): option B.**
+`formal/model/spec.py` deliberately does not add bounded actions/states for
+`GoalSatisfied`, `GoalNotSatisfied`, `WorkflowInvariantViolated`,
+`WorkflowCycleDetected`, or `RunAbstained`. Extending the bounded FASM/setdb
+exploration to this vocabulary is a real modeling task (new abstract action
+set, new state space, new saturation counts) and is out of scope for a
+release-hardening pass. `assert_invariants` in `spec.py` still contains two
+ordering/exclusion checks written against these event types; they are marked
+`NOTE(vacuity)` in the source because no action in that module emits these
+events and no test constructs a `ReferenceState` containing them, so those
+two checks are currently vacuous over every bounded exploration and every
+committed test. Runtime-level coverage of the same properties (not a
+reference-model proof) lives in
+`tests/test_v04_constrained_execution_e2e.py::V04ControlRestartEquivalenceTests`
+and the targeted mutation table in `docs/release-evidence-0.4.md`.
+
 ## 3. Concrete single-run integration model
 
 The concrete state is:

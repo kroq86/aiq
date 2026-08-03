@@ -39,6 +39,16 @@ def _payload(event_type: str, data: Mapping) -> tuple[tuple[str, object], ...]:
             ("model_step", continuation["model_step"]),
             ("tool_calls_used", continuation["tool_calls_used"]),
         )
+    if event_type == "ToolValidationSucceeded":
+        return (("phase", data["phase"]),)
+    if event_type == "ToolValidationFailed":
+        continuation = data["continuation"]
+        return (
+            ("model_step", continuation["model_step"]),
+            ("tool_calls_used", continuation["tool_calls_used"]),
+            ("phase", data["phase"]),
+            ("retryable", data["retryable"]),
+        )
     if event_type == "AnswerProduced":
         return (("answer", data["answer"]),)
     return ()

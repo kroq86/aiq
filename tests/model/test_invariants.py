@@ -6,6 +6,25 @@ from dataclasses import replace
 from .reference import NormalizedEvent, assert_invariants, initial_state, step
 
 
+def validation_outcome_state(outcome: str):
+    state = initial_state()
+    applied = False
+    for _ in range(20):
+        state = step(state, "reaction")
+        next_effect = state.effect_checkpoint
+        if (
+            not applied
+            and next_effect < len(state.history)
+            and state.history[next_effect].event_type == "ToolCallRequested"
+        ):
+            state = step(state, f"effect_validation_{outcome}")
+            applied = True
+            break
+        state = step(state, "effect")
+    assert applied
+    return state
+
+
 def completed_state():
     state = initial_state()
     for _ in range(30):
@@ -15,6 +34,42 @@ def completed_state():
 
 
 class InvariantOracleMutationTests(unittest.TestCase):
+    def test_oracle_rejects_retryable_postcondition_failure(self) -> None:
+        state = validation_outcome_state("postcondition_failure")
+        index = next(
+            index
+            for index, event in enumerate(state.history)
+            if event.event_type == "ToolValidationFailed"
+        )
+        failure = state.history[index]
+        payload = dict(failure.payload)
+        payload["retryable"] = True
+        mutant = replace(
+            state,
+            history=state.history[:index]
+            + (replace(failure, payload=tuple(payload.items())),)
+            + state.history[index + 1 :],
+        )
+        with self.assertRaises(AssertionError):
+            assert_invariants(state, mutant)
+
+    def test_oracle_rejects_postcondition_failure_without_pre_evidence(self) -> None:
+        state = validation_outcome_state("postcondition_failure")
+        index = next(
+            index
+            for index, event in enumerate(state.history)
+            if event.event_type == "ToolValidationSucceeded"
+        )
+        evidence = state.history[index]
+        mutant = replace(
+            state,
+            history=state.history[:index]
+            + (replace(evidence, event_type="ValidationEvidenceLost"),)
+            + state.history[index + 1 :],
+        )
+        with self.assertRaises(AssertionError):
+            assert_invariants(state, mutant)
+
     def test_oracle_rejects_changed_causation_and_operation(self) -> None:
         valid = completed_state()
         index = next(

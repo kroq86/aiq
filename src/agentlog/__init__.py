@@ -76,6 +76,17 @@ from .tools import (
     tool_definition_fingerprint,
     validate_tool_arguments,
 )
+from .validation import (
+    ExecutionPolicy,
+    PostconditionFailed,
+    ToolPolicy,
+    ToolValidationContext,
+    ValidationAccepted,
+    ValidationAmbiguous,
+    ValidationDecision,
+    ValidationRejected,
+    ValidationStatus,
+)
 from .streams import agent_owns_stream, run_stream_id
 from .sequence import (
     ChildTerminalOutcome,
@@ -125,6 +136,7 @@ __all__ = [
     "EffectFailed",
     "EffectMetadataError",
     "EffectRegistry",
+    "ExecutionPolicy",
     "Event",
     "EventEnvelope",
     "EventStore",
@@ -168,6 +180,14 @@ __all__ = [
     "ToolRegistry",
     "ToolRequest",
     "ToolResult",
+    "ToolPolicy",
+    "ToolValidationContext",
+    "ValidationAccepted",
+    "ValidationRejected",
+    "ValidationAmbiguous",
+    "ValidationDecision",
+    "ValidationStatus",
+    "PostconditionFailed",
     "TraceEvent",
     "TraceService",
     "VersionConflictError",
